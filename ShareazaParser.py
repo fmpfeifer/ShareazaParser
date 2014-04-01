@@ -19,6 +19,7 @@
 from __future__ import print_function
 import sys, os.path, getopt
 import struct, uuid, base64
+import traceback, types
 
 __author__ = "Fábio Melo Pfefer"
 __copyright__ = "Copyright 2014, Fabio Melo Pfeifer"
@@ -64,9 +65,11 @@ encoders = {
     'guid': encode_guid}
 
 
-def _bool_to_str(b):
+def _reencode(b):
     if type(b) is bool:
         return str(b)
+    if type(b) is types.UnicodeType:
+        return b.encode('utf-8')
     return b
 
 
@@ -84,7 +87,7 @@ class FileWriter:
                 print(("  " * (self.ident - 1)) + fmt, file=self.file_handle)
         else:
             if type(text) is tuple:
-                self.out(level, fmt % tuple(map(_bool_to_str, text)))
+                self.out(level, fmt % tuple(map(_reencode, text)))
             else:
                 self.out(level, fmt, (text,))
 
@@ -797,6 +800,7 @@ class LibraryFile:
         self.sha1 = ''
         self.tiger = ''
         self.md5 = ''
+        self.ed2k = ''
         self.bth = ''
         self.verify = 0
         self.uri = ''
@@ -823,6 +827,7 @@ class LibraryFile:
         f.out(2, "SHA1: %s", self.sha1)
         f.out(2, "Tiger: %s", self.tiger)
         f.out(2, "MD5: %s", self.md5)
+        f.out(2, "ED2K: %s", self.ed2k)
         f.out(2, "BTH: %s", self.bth)
         f.out(3, "Verify: %s", _tri_state_decode[self.verify])
         f.out(3, "URI: %s", self.uri)
@@ -868,6 +873,7 @@ class LibraryFile:
             self.tiger = ar.read_hash(24)
         if version >= 11:
             self.md5 = ar.read_hash(16)
+            self.ed2k = ar.read_hash(16)
         if version >= 26:
             self.bth = ar.read_hash(20, encoder='base32')
         if version >= 4:
@@ -1213,7 +1219,8 @@ def main(command, argv):
                 fout.close()
             parsed = True
         except:
-            pass
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_tb(exc_traceback, file=sys.stderr)
 
     if os.path.isfile('Library1.dat'):
         try:
@@ -1231,7 +1238,8 @@ def main(command, argv):
                 fout.close()
             parsed = True
         except:
-            pass
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_tb(exc_traceback, file=sys.stderr)
 
     if os.path.isfile('Library2.dat'):
         try:
@@ -1249,7 +1257,8 @@ def main(command, argv):
                 fout.close()
             parsed = True
         except:
-            pass
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_tb(exc_traceback, file=sys.stderr)
 
     if not parsed:
         print(
