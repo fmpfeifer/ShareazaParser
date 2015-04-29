@@ -812,11 +812,11 @@ class LibraryFile:
     """Represents a file in the Library"""
 
     csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%.8f"),
-                 ("Shared", "%s"), ("InheritedShared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"),
-                 ("SHA1", "%s"), ("Tiger", "%s"), ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"),
-                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%.8f"), ("MetadataModified", "%s"),
-                 ("Rating", "%d"), ("Comments", "%s"), ("ShareTags", "%s"), ("HitsTotal", "%d"), ("UploadsTotal", "%d"),
-                 ("CachedPreview", "%s"), ("Bogus", "%s")]
+                 ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"), ("SHA1", "%s"), ("Tiger", "%s"),
+                 ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"), ("URI", "%s"), ("MetadataAuto", "%s"),
+                 ("MetadataTime", "%.8f"), ("MetadataModified", "%s"), ("Rating", "%d"), ("Comments", "%s"),
+                 ("ShareTags", "%s"), ("HitsTotal", "%d"), ("UploadsTotal", "%d"), ("CachedPreview", "%s"),
+                 ("Bogus", "%s")]
 
     def __init__(self, parentFolder = None):
         self.metadata = XMLElement()
@@ -860,8 +860,7 @@ class LibraryFile:
         f.out(3, "Index: %d", self.index)
         f.out(2, "Size: %d", self.size)
         f.out(3, "Time: %d", self.time)
-        f.out(2, "Shared: %s", _tri_state_decode[self.shared])
-        f.out(2, "Inherited Shared: %s", _tri_state_decode[self.get_inherited_shared()])
+        f.out(2, "Shared: %s", _tri_state_decode[self.get_inherited_shared()])
         f.out(3, "Virtual Size: %d, Virtual Base: %d", (self.virtualSize, self.virtualBase))
         f.out(2, "SHA1: %s", self.sha1)
         f.out(2, "Tiger: %s", self.tiger)
@@ -887,11 +886,10 @@ class LibraryFile:
 
     def print_to_csv(self, writer, path):
         row = [path, self.name.encode("UTF-8"), self.index, self.size, convert_to_csv_timestamp(self.time),
-               _tri_state_decode[self.shared], _tri_state_decode[self.get_inherited_shared()], self.virtualSize,
-               self.virtualBase, self.sha1, self.tiger, self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify],
-               self.uri, self.metadata_auto, convert_to_csv_timestamp(self.metadata_time), self.metadata_modified,
-               self.rating, self.comments, self.share_tags, self.hist_total, self.uploads_total, self.cached_preview,
-               self.bogus]
+               _tri_state_decode[self.get_inherited_shared()], self.virtualSize, self.virtualBase, self.sha1,
+               self.tiger, self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify], self.uri, self.metadata_auto,
+               convert_to_csv_timestamp(self.metadata_time), self.metadata_modified, self.rating, self.comments,
+               self.share_tags, self.hist_total, self.uploads_total, self.cached_preview, self.bogus]
         writer.out(row)
 
     def serialize(self, ar, version):
@@ -1017,8 +1015,7 @@ class LibraryFolder:
         f.out(1, "Files: %d", self.n_files)
         f.out(1, "Volume: %d", self.n_volume)
         f.out(0, "Path: %s", self.path)
-        f.out(0, "Shared: %s", _tri_state_decode[self.shared])
-        f.out(0, "Inherited Shared: %s", _tri_state_decode[self.get_inherited_shared()])
+        f.out(0, "Shared: %s", _tri_state_decode[self.get_inherited_shared()])
         f.out(3, "Expanded: %s", self.expanded)
         for fold in self.folders:
             fold.print_state(f)
