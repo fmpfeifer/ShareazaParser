@@ -83,7 +83,7 @@ class FileWriter:
         self.ident = 1
 
     def out(self, level, fmt, text=None):
-        if text == None:
+        if text is None:
             if level <= self.level:
                 print(("  " * (self.ident - 1)) + fmt, file=self.file_handle)
         else:
@@ -804,13 +804,13 @@ class LibraryFile:
     """Represents a file in the Library"""
 
     csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%d"),
-                 ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"), ("SHA1", "%s"), ("Tiger", "%s"),
-                 ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"), ("URI", "%s"), ("MetadataAuto", "%s"),
-                 ("MetadataTime", "%d"), ("MetadataModified", "%s"), ("Rating", "%d"), ("Comments", "%s"),
-                 ("ShareTags", "%s"), ("HitsTotal", "%d"), ("UploadsTotal", "%d"), ("CachedPreview", "%s"),
-                 ("Bogus", "%s")]
+                 ("Shared", "%s"), ("InheritedShared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"),
+                 ("SHA1", "%s"), ("Tiger", "%s"), ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"),
+                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%d"), ("MetadataModified", "%s"),
+                 ("Rating", "%d"), ("Comments", "%s"), ("ShareTags", "%s"), ("HitsTotal", "%d"), ("UploadsTotal", "%d"),
+                 ("CachedPreview", "%s"), ("Bogus", "%s")]
 
-    def __init__(self):
+    def __init__(self, parentFolder = None):
         self.metadata = XMLElement()
         self.shared_sources = []
         self.name = ''
@@ -837,6 +837,13 @@ class LibraryFile:
         self.uploads_total = 0
         self.cached_preview = False
         self.bogus = False
+        self.parentFolder = parentFolder
+
+    def get_inherited_shared(self):
+        inShared = self.shared
+        if inShared == 0 and self.parentFolder is not None:
+            inShared = self.parentFolder.get_inherited_shared()
+        return inShared
 
     def print_state(self, f):
         f.out(0, "LIBRARY FILE")
@@ -846,6 +853,7 @@ class LibraryFile:
         f.out(2, "Size: %d", self.size)
         f.out(3, "Time: %d", self.time)
         f.out(2, "Shared: %s", _tri_state_decode[self.shared])
+        f.out(2, "Inherited Shared: %s", _tri_state_decode[self.get_inherited_shared()])
         f.out(3, "Virtual Size: %d, Virtual Base: %d", (self.virtualSize, self.virtualBase))
         f.out(2, "SHA1: %s", self.sha1)
         f.out(2, "Tiger: %s", self.tiger)
@@ -871,10 +879,10 @@ class LibraryFile:
 
     def print_to_csv(self, writer, path):
         row = [path, self.name.encode("UTF-8"), self.index, self.size, self.time, _tri_state_decode[self.shared],
-               self.virtualSize, self.virtualBase, self.sha1, self.tiger, self.md5, self.ed2k, self.bth,
-               _tri_state_decode[self.verify], self.uri, self.metadata_auto, self.metadata_time, self.metadata_modified,
-               self.rating, self.comments, self.share_tags, self.hist_total, self.uploads_total, self.cached_preview,
-               self.bogus]
+               _tri_state_decode[self.get_inherited_shared()], self.virtualSize, self.virtualBase, self.sha1, self.tiger,
+               self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify], self.uri, self.metadata_auto,
+               self.metadata_time, self.metadata_modified, self.rating, self.comments, self.share_tags, self.hist_total,
+               self.uploads_total, self.cached_preview, self.bogus]
         writer.out(row)
 
     def serialize(self, ar, version):
@@ -978,7 +986,7 @@ class LibraryMaps:
 
 
 class LibraryFolder:
-    def __init__(self):
+    def __init__(self, parentFolder = None):
         self.folders = []
         self.files = []
         self.n_files = 0
@@ -986,6 +994,13 @@ class LibraryFolder:
         self.path = ''
         self.shared = 0
         self.expanded = False
+        self.parentFolder = parentFolder
+
+    def get_inherited_shared(self):
+        inShared = self.shared
+        if inShared == 0 and self.parentFolder is not None:
+            inShared = self.parentFolder.get_inherited_shared()
+        return inShared
 
     def print_state(self, f):
         f.out(0, "LIBRARY FOLDER")
@@ -994,6 +1009,7 @@ class LibraryFolder:
         f.out(1, "Volume: %d", self.n_volume)
         f.out(0, "Path: %s", self.path)
         f.out(0, "Shared: %s", _tri_state_decode[self.shared])
+        f.out(0, "Inherited Shared: %s", _tri_state_decode[self.get_inherited_shared()])
         f.out(3, "Expanded: %s", self.expanded)
         for fold in self.folders:
             fold.print_state(f)
@@ -1021,14 +1037,14 @@ class LibraryFolder:
             self.expanded = ar.read_bool()
         n = ar.read_count()
         for i in range(n):
-            folder = LibraryFolder()
+            folder = LibraryFolder(self)
             folder.serialize(ar, version)
             self.folders.append(folder)
             self.n_files += folder.n_files
             self.n_volume += folder.n_volume
         n = ar.read_count()
         for i in range(n):
-            file = LibraryFile()
+            file = LibraryFile(self)
             file.serialize(ar, version)
             self.files.append(file)
             self.n_files += 1
