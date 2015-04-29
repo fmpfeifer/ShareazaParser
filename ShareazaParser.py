@@ -20,12 +20,13 @@ from __future__ import print_function
 import sys, os.path, getopt
 import struct, uuid, base64
 import traceback, types
+import csv
 
 __author__ = "Fábio Melo Pfefer"
 __copyright__ = "Copyright 2014, Fabio Melo Pfeifer"
 __credits__ = ["Fábio Melo Pfeifer"]
 __license__ = "GPL"
-__version__ = "0.3"
+__version__ = "0.4"
 __maintainer__ = "Fábio Pfeifer"
 __email__ = "fmpfeifer@gmail.com"
 __status__ = "Beta"
@@ -97,12 +98,25 @@ class FileWriter:
     def dec_ident(self):
         self.ident -= 1
 
+class CSVWriter:
+    """CSV Output generator"""
+
+    def __init__(self, file_handle, header):
+        self.file_handle = file_handle
+        titles = map(lambda x: x[0], header)
+        self.fmt = map(lambda x: x[1], header)
+        self.csvwriter = csv.writer(file_handle, delimiter=';')
+        self.csvwriter.writerow(titles)
+
+    def out(self, row):
+        self.csvwriter.writerow(map(lambda x: x[1] % _reencode(x[0]), zip(row, self.fmt)))
+
 
 class MFCParser:
     """Simple CArchive parser"""
 
     def __init__(self, filename):
-        self._file = open(filename, 'rb');
+        self._file = open(filename, 'rb')
         self.position = 0
 
     def close(self):
@@ -787,6 +801,15 @@ class SharedSource:
 
 
 class LibraryFile:
+    """Represents a file in the Library"""
+
+    csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%d"),
+                 ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"), ("SHA1", "%s"), ("Tiger", "%s"),
+                 ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"), ("URI", "%s"), ("MetadataAuto", "%s"),
+                 ("MetadataTime", "%d"), ("MetadataModified", "%s"), ("Rating", "%d"), ("Comments", "%s"),
+                 ("ShareTags", "%s"), ("HitsTotal", "%d"), ("UploadsTotal", "%d"), ("CachedPreview", "%s"),
+                 ("Bogus", "%s")]
+
     def __init__(self):
         self.metadata = XMLElement()
         self.shared_sources = []
@@ -846,6 +869,13 @@ class LibraryFile:
 
         f.dec_ident()
 
+    def print_to_csv(self, writer, path):
+        row = [path, self.name.encode("UTF-8"), self.index, self.size, self.time, _tri_state_decode[self.shared],
+               self.virtualSize, self.virtualBase, self.sha1, self.tiger, self.md5, self.ed2k, self.bth,
+               _tri_state_decode[self.verify], self.uri, self.metadata_auto, self.metadata_time, self.metadata_modified,
+               self.rating, self.comments, self.share_tags, self.hist_total, self.uploads_total, self.cached_preview,
+               self.bogus]
+        writer.out(row)
 
     def serialize(self, ar, version):
         self.name = ar.read_string()
@@ -971,6 +1001,12 @@ class LibraryFolder:
             fi.print_state(f)
         f.dec_ident()
 
+    def print_to_csv(self, w):
+        for fold in self.folders:
+            fold.print_to_csv(w)
+        for fi in self.files:
+            fi.print_to_csv(w, self.path)
+
     def serialize(self, ar, version):
         self.path = ar.read_string()
         if version >= 5:
@@ -1063,6 +1099,10 @@ class LibraryFolders:
         self.album_root.print_state(f)
         f.dec_ident()
 
+    def print_to_csv(self, w):
+        for fold in self.folders:
+            fold.print_to_csv(w)
+
     def serialize(self, ar, version):
         n = ar.read_count()
         for i in range(n):
@@ -1154,6 +1194,9 @@ class Library:
         self.libraryDictionary.print_state(f)
         f.dec_ident()
 
+    def print_to_csv(self, w):
+        self.libraryFolders.print_to_csv(w)
+
 ############################################################################################################
 
 ### Main Part
@@ -1165,7 +1208,7 @@ def usage(command):
     print("This program needs python version >= 2.5 and < 3 (2.7 recommended)")
     print("")
     print("Usage:")
-    print("%s [-h] [-l level] [-c]" % (command,))
+    print("%s [-h] [-l level] [-c] [-s]" % (command,))
     print('')
     print(" -h: print this help and exits")
     print(" -c: output to stdout")
@@ -1175,15 +1218,17 @@ def usage(command):
     print("     1 - Important: Important information and level 0 information is displayed")
     print("     2 - Useful: Useful information and level 1 information is displayed")
     print("     3 - Debug(default): All available information is displayed")
+    print(" -s: print to csv spreadsheet")
 
 
 def main(command, argv):
     parsed = False
     level = 3
     tostdout = False
+    tocsv = False
 
     try:
-        opts, args = getopt.getopt(argv, "hl:c", ["level="])
+        opts, args = getopt.getopt(argv, "hl:cs", ["level="])
     except getopt.GetoptError:
         usage(command)
         sys.exit(2)
@@ -1192,6 +1237,8 @@ def main(command, argv):
         if opt == "-h":
             usage(command)
             sys.exit()
+        elif opt == "-s":
+            tocsv = True
         elif opt in ("-l", "--level"):
             try:
                 level = int(arg)
@@ -1210,6 +1257,8 @@ def main(command, argv):
             s = Searches()
             s.serialize(parser)
             parser.close()
+            if (tocsv):
+                pass
             if tostdout:
                 fout = sys.stdout
             else:
@@ -1229,6 +1278,12 @@ def main(command, argv):
             l = Library(1)
             l.serialize(parser)
             parser.close()
+            if tocsv:
+                fout = open('Library1.csv', "wb")
+                writer = CSVWriter(fout, LibraryFile.csvheader)
+                l.print_to_csv(writer)
+                parsed = True
+
             if tostdout:
                 fout = sys.stdout
             else:
@@ -1248,6 +1303,12 @@ def main(command, argv):
             l = Library(2)
             l.serialize(parser)
             parser.close()
+            if tocsv:
+                fout = open('Library2.csv', "wb")
+                writer = CSVWriter(fout, LibraryFile.csvheader)
+                l.print_to_csv(writer)
+                parsed = True
+
             if tostdout:
                 fout = sys.stdout
             else:
