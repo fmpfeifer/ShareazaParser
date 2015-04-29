@@ -838,6 +838,7 @@ class LibraryFile:
         f.out(3, "Comments: %s", self.comments)
         f.out(3, "Share Tags: %s", self.share_tags)
         f.out(3, "Hist Total: %d", self.hist_total)
+        f.out(3, "Uploads Total: %d", self.uploads_total)
         f.out(3, "Cached Preview: %s", self.cached_preview)
         f.out(3, "Bogus: %s", self.bogus)
         for s in self.shared_sources:
