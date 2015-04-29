@@ -74,6 +74,14 @@ def _reencode(b):
     return b
 
 
+def convert_to_epoch(timestamp):
+    return timestamp/10000000-11644473600
+
+
+def convert_to_csv_timestamp(epoch):
+    return epoch / 86400.0 + 25569
+
+
 class FileWriter:
     """Output generator"""
 
@@ -795,18 +803,18 @@ class SharedSource:
     def serialize(self, ar, version):
         self.url = ar.read_string()
         if version >= 10:
-            self.time = ar.read_ulong()
+            self.time = convert_to_epoch(ar.read_ulong())
         else:
-            self.time = ar.read_uint()
+            self.time = convert_to_epoch(ar.read_uint())
 
 
 class LibraryFile:
     """Represents a file in the Library"""
 
-    csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%d"),
+    csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%.8f"),
                  ("Shared", "%s"), ("InheritedShared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"),
                  ("SHA1", "%s"), ("Tiger", "%s"), ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"),
-                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%d"), ("MetadataModified", "%s"),
+                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%.8f"), ("MetadataModified", "%s"),
                  ("Rating", "%d"), ("Comments", "%s"), ("ShareTags", "%s"), ("HitsTotal", "%d"), ("UploadsTotal", "%d"),
                  ("CachedPreview", "%s"), ("Bogus", "%s")]
 
@@ -878,11 +886,12 @@ class LibraryFile:
         f.dec_ident()
 
     def print_to_csv(self, writer, path):
-        row = [path, self.name.encode("UTF-8"), self.index, self.size, self.time, _tri_state_decode[self.shared],
-               _tri_state_decode[self.get_inherited_shared()], self.virtualSize, self.virtualBase, self.sha1, self.tiger,
-               self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify], self.uri, self.metadata_auto,
-               self.metadata_time, self.metadata_modified, self.rating, self.comments, self.share_tags, self.hist_total,
-               self.uploads_total, self.cached_preview, self.bogus]
+        row = [path, self.name.encode("UTF-8"), self.index, self.size, convert_to_csv_timestamp(self.time),
+               _tri_state_decode[self.shared], _tri_state_decode[self.get_inherited_shared()], self.virtualSize,
+               self.virtualBase, self.sha1, self.tiger, self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify],
+               self.uri, self.metadata_auto, convert_to_csv_timestamp(self.metadata_time), self.metadata_modified,
+               self.rating, self.comments, self.share_tags, self.hist_total, self.uploads_total, self.cached_preview,
+               self.bogus]
         writer.out(row)
 
     def serialize(self, ar, version):
@@ -892,7 +901,7 @@ class LibraryFile:
             self.size = ar.read_ulong()
         else:
             self.size = ar.read_uint()
-        self.time = ar.read_ulong()
+        self.time = convert_to_epoch(ar.read_ulong())
         if version >= 5:
             self.shared = ar.read_uint() # TRISATE: 0 - unknown, 1 FALSE, 2 TRUE
         else:
@@ -922,7 +931,7 @@ class LibraryFile:
             if version < 27:
                 self.metadata_auto = ar.read_bool()
                 if not self.metadata_auto:
-                    self.metadata_time = ar.read_ulong()
+                    self.metadata_time = convert_to_epoch(ar.read_ulong())
             self.metadata.serialize(ar)
         if version >= 13:
             self.rating = ar.read_int()
@@ -931,10 +940,10 @@ class LibraryFile:
                 self.share_tags = ar.read_string()
             if version >= 27:
                 self.metadata_auto = ar.read_bool()
-                self.metadata_time = ar.read_ulong()
+                self.metadata_time = convert_to_epoch(ar.read_ulong())
             else:
                 if self.metadata_auto and (self.rating != 0 or len(self.comments) > 0):
-                    self.metadata_time = ar.read_ulong()
+                    self.metadata_time = convert_to_epoch(ar.read_ulong())
         self.metadata_modified = False
         self.hist_total = ar.read_uint()
         self.uploads_total = ar.read_uint()
@@ -1142,7 +1151,7 @@ class LibraryRecent:
         f.dec_ident()
 
     def serialize(self, ar, version):
-        self.time = ar.read_ulong()
+        self.time = convert_to_epoch(ar.read_ulong())
         self.index = ar.read_uint()
 
 
@@ -1174,7 +1183,7 @@ class LibraryHistory:
             self.last_seeded_torrent_path = ar.read_string()
             if len(self.last_seeded_torrent_path) > 0:
                 self.last_seeded_torrent_name = ar.read_string()
-                self.last_seeded_torrent_tlastseeded = ar.read_uint()
+                self.last_seeded_torrent_tlastseeded = convert_to_epoch(ar.read_uint())
                 self.last_seeded_torrent_bth = ar.read_hash(20, encoder='base32')
 
 
@@ -1235,6 +1244,8 @@ def usage(command):
     print("     2 - Useful: Useful information and level 1 information is displayed")
     print("     3 - Debug(default): All available information is displayed")
     print(" -s: print to csv spreadsheet")
+    print("")
+    print(" Timestamps are exported as Unix epoch in text files, or as Excel date in csv files.")
 
 
 def main(command, argv):
