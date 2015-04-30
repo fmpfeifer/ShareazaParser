@@ -819,9 +819,9 @@ class LibraryFile:
     """Represents a file in the Library"""
 
     csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%.8f"),
-                 ("FormattedTime", "%s"), ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"),
+                 ("FormattedTime (UTC)", "%s"), ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"),
                  ("SHA1", "%s"), ("Tiger", "%s"), ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"),
-                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%.8f"), ("FormattedMetadataTime", "%s"),
+                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%.8f"), ("FormattedMetadataTime (UTC)", "%s"),
                  ("MetadataModified", "%s"), ("Rating", "%d"), ("Comments", "%s"), ("ShareTags", "%s"),
                  ("HitsTotal", "%d"), ("UploadsTotal", "%d"), ("CachedPreview", "%s"), ("Bogus", "%s")]
 
