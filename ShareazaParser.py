@@ -63,7 +63,8 @@ encoders = {
     'base16': encode_hex,
     'base32': encode_base32,
     'base64': encode_base64,
-    'guid': encode_guid}
+    'guid': encode_guid
+}
 
 
 def _reencode(b):
@@ -80,6 +81,7 @@ def convert_to_epoch(timestamp):
 
 def convert_to_csv_timestamp(epoch):
     return epoch / 86400.0 + 25569
+
 
 def format_datetime(epoch):
     try:
@@ -804,7 +806,7 @@ class SharedSource:
         f.out(2, "SHARED SOURCE")
         f.inc_ident()
         f.out(2, "URL: " + self.url)
-        f.out(2, "Time: %d" % (self.time,))
+        f.out(2, "Time: %d (%s UTC)" % (self.time,format_datetime(self.time)))
         f.dec_ident()
 
     def serialize(self, ar, version):
@@ -866,7 +868,7 @@ class LibraryFile:
         f.out(0, "Name: %s", self.name.encode("UTF-8"))
         f.out(3, "Index: %d", self.index)
         f.out(2, "Size: %d", self.size)
-        f.out(3, "Time: %d", self.time)
+        f.out(3, "Time: %d (%s UTC)", (self.time, format_datetime(self.time)))
         f.out(2, "Shared: %s", _tri_state_decode[self.get_inherited_shared()])
         f.out(3, "Virtual Size: %d, Virtual Base: %d", (self.virtualSize, self.virtualBase))
         f.out(2, "SHA1: %s", self.sha1)
@@ -1173,7 +1175,8 @@ class LibraryHistory:
         f.inc_ident()
         f.out(2, "Last Seeded Torrent Path: %s", self.last_seeded_torrent_path)
         f.out(2, "Last Seeded Torrent Name: %s", self.last_seeded_torrent_name)
-        f.out(2, "Last Seeded Torrent Time Last Seeded: %d", self.last_seeded_torrent_tlastseeded)
+        f.out(2, "Last Seeded Torrent Time Last Seeded: %d (%s UTC)", (self.last_seeded_torrent_tlastseeded,
+            format_datetime(self.last_seeded_torrent_tlastseeded)))
         f.out(2, "Last Seeded Torrent BTH: %s", self.last_seeded_torrent_bth)
         for rec in self.list:
             rec.print_state(f)
@@ -1241,14 +1244,14 @@ def usage(command):
     print("%s [-h] [-l level] [-c] [-s]" % (command,))
     print('')
     print(" -h: print this help and exits")
-    print(" -c: output to stdout")
+    print(" -c: output text to stdout")
     print(" -l level  (--level=level):")
-    print("   Choose output level:")
+    print("   Choose output level (only valid for text output):")
     print("     0 - Very Important: Only very important information is displayed")
     print("     1 - Important: Important information and level 0 information is displayed")
     print("     2 - Useful: Useful information and level 1 information is displayed")
     print("     3 - Debug(default): All available information is displayed")
-    print(" -s: print to csv spreadsheet")
+    print(" -s: generate csv spreadsheet (instead of text)")
     print("")
     print(" Timestamps are exported as Unix epoch in text files, or as Excel date in csv files.")
 
@@ -1284,75 +1287,49 @@ def main(command, argv):
             tostdout = True
 
     if os.path.isfile('Searches.dat'):
-        try:
-            parser = MFCParser("Searches.dat")
-            s = Searches()
-            s.serialize(parser)
-            parser.close()
-            if (tocsv):
-                pass
-            if tostdout:
-                fout = sys.stdout
-            else:
-                fout = open('Searches.txt', "wt")
-            out = FileWriter(fout, level)
-            s.print_state(out)
-            if not tostdout:
-                fout.close()
-            parsed = True
-        except:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_tb(exc_traceback, file=sys.stderr)
-
-    if os.path.isfile('Library1.dat'):
-        try:
-            parser = MFCParser("Library1.dat")
-            l = Library(1)
-            l.serialize(parser)
-            parser.close()
-            if tocsv:
-                fout = open('Library1.csv', "wb")
-                writer = CSVWriter(fout, LibraryFile.csvheader)
-                l.print_to_csv(writer)
+        if not tocsv:
+            try:
+                parser = MFCParser("Searches.dat")
+                s = Searches()
+                s.serialize(parser)
+                parser.close()
+                if tostdout:
+                    fout = sys.stdout
+                else:
+                    fout = open('Searches.txt', "wt")
+                out = FileWriter(fout, level)
+                s.print_state(out)
+                if not tostdout:
+                    fout.close()
                 parsed = True
+            except:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_tb(exc_traceback, file=sys.stderr)
 
-            if tostdout:
-                fout = sys.stdout
-            else:
-                fout = open('Library1.txt', "wt")
-            out = FileWriter(fout, level)
-            l.print_state(out)
-            if not tostdout:
-                fout.close()
-            parsed = True
-        except:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_tb(exc_traceback, file=sys.stderr)
-
-    if os.path.isfile('Library2.dat'):
-        try:
-            parser = MFCParser("Library2.dat")
-            l = Library(2)
-            l.serialize(parser)
-            parser.close()
-            if tocsv:
-                fout = open('Library2.csv', "wb")
-                writer = CSVWriter(fout, LibraryFile.csvheader)
-                l.print_to_csv(writer)
+    for lib in [1, 2]:
+        if os.path.isfile('Library%d.dat' % (lib,)):
+            try:
+                parser = MFCParser('Library%d.dat' % (lib,))
+                l = Library(lib)
+                l.serialize(parser)
+                parser.close()
+                if tocsv:
+                    fout = open('Library%d.csv' % (lib,), "wb")
+                    writer = CSVWriter(fout, LibraryFile.csvheader)
+                    l.print_to_csv(writer)
+                else:
+                    if tostdout:
+                        fout = sys.stdout
+                    else:
+                        fout = open('Library%d.txt' % (lib,), "wt")
+                    out = FileWriter(fout, level)
+                    l.print_state(out)
+                    if not tostdout:
+                        fout.close()
                 parsed = True
-
-            if tostdout:
-                fout = sys.stdout
-            else:
-                fout = open('Library2.txt', "wt")
-            out = FileWriter(fout, level)
-            l.print_state(out)
-            if not tostdout:
-                fout.close()
-            parsed = True
-        except:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_tb(exc_traceback, file=sys.stderr)
+            except:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_tb(exc_traceback, file=sys.stderr)
 
     if not parsed:
         print(
