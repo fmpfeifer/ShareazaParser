@@ -20,7 +20,7 @@ from __future__ import print_function
 import sys, os.path, getopt
 import struct, uuid, base64
 import traceback, types
-import csv
+import csv, datetime
 
 __author__ = "Fábio Melo Pfefer"
 __copyright__ = "Copyright 2014, Fabio Melo Pfeifer"
@@ -80,6 +80,13 @@ def convert_to_epoch(timestamp):
 
 def convert_to_csv_timestamp(epoch):
     return epoch / 86400.0 + 25569
+
+def format_datetime(epoch):
+    try:
+        return datetime.datetime.fromtimestamp(epoch).strftime('%Y-%m-%d %H:%M:%S')
+    except:
+        pass
+    return "0000-00-00 00:00:00"
 
 
 class FileWriter:
@@ -812,11 +819,11 @@ class LibraryFile:
     """Represents a file in the Library"""
 
     csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%.8f"),
-                 ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"), ("SHA1", "%s"), ("Tiger", "%s"),
-                 ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"), ("URI", "%s"), ("MetadataAuto", "%s"),
-                 ("MetadataTime", "%.8f"), ("MetadataModified", "%s"), ("Rating", "%d"), ("Comments", "%s"),
-                 ("ShareTags", "%s"), ("HitsTotal", "%d"), ("UploadsTotal", "%d"), ("CachedPreview", "%s"),
-                 ("Bogus", "%s")]
+                 ("FormattedTime", "%s"), ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"),
+                 ("SHA1", "%s"), ("Tiger", "%s"), ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"),
+                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%.8f"), ("FormattedMetadataTime", "%s"),
+                 ("MetadataModified", "%s"), ("Rating", "%d"), ("Comments", "%s"), ("ShareTags", "%s"),
+                 ("HitsTotal", "%d"), ("UploadsTotal", "%d"), ("CachedPreview", "%s"), ("Bogus", "%s")]
 
     def __init__(self, parentFolder = None):
         self.metadata = XMLElement()
@@ -886,10 +893,11 @@ class LibraryFile:
 
     def print_to_csv(self, writer, path):
         row = [path, self.name.encode("UTF-8"), self.index, self.size, convert_to_csv_timestamp(self.time),
-               _tri_state_decode[self.get_inherited_shared()], self.virtualSize, self.virtualBase, self.sha1,
-               self.tiger, self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify], self.uri, self.metadata_auto,
-               convert_to_csv_timestamp(self.metadata_time), self.metadata_modified, self.rating, self.comments,
-               self.share_tags, self.hist_total, self.uploads_total, self.cached_preview, self.bogus]
+               format_datetime(self.time), _tri_state_decode[self.get_inherited_shared()], self.virtualSize,
+               self.virtualBase, self.sha1, self.tiger, self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify],
+               self.uri, self.metadata_auto, convert_to_csv_timestamp(self.metadata_time),
+               format_datetime(self.metadata_time), self.metadata_modified, self.rating, self.comments, self.share_tags,
+               self.hist_total, self.uploads_total, self.cached_preview, self.bogus]
         writer.out(row)
 
     def serialize(self, ar, version):
