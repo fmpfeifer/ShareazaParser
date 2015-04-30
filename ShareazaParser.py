@@ -1356,7 +1356,7 @@ def main(command, argv):
 
     if not parsed:
         print(
-            "No file found for parsing. Make shure Searches.dat, Library1.dat or Library2.dat is in current directory.",
+            "No file found for parsing. Make sure Searches.dat, Library1.dat or Library2.dat is in current directory.",
             file=sys.stderr)
         sys.exit(1)
 
