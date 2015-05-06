@@ -102,7 +102,7 @@ class FileWriter:
     def out(self, level, fmt, text=None):
         if text is None:
             if level <= self.level:
-                print(("  " * (self.ident - 1)) + fmt, file=self.file_handle)
+                print(("  " * (self.ident - 1)) + _reencode(fmt), file=self.file_handle)
         else:
             if type(text) is tuple:
                 self.out(level, fmt % tuple(map(_reencode, text)))
