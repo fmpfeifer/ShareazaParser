@@ -1302,7 +1302,10 @@ def main(command, argv):
                 if not tostdout:
                     fout.close()
                 parsed = True
-            except:
+            except Exception as inst:
+                print(type(inst))
+                print(inst.args)
+                print(inst)
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 traceback.print_tb(exc_traceback, file=sys.stderr)
 
@@ -1327,7 +1330,10 @@ def main(command, argv):
                     if not tostdout:
                         fout.close()
                 parsed = True
-            except:
+            except Exception as inst:
+                print(type(inst))
+                print(inst.args)
+                print(inst)
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 traceback.print_tb(exc_traceback, file=sys.stderr)
 
