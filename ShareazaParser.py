@@ -760,8 +760,7 @@ class Searches:
         self.searchWindows = []
 
     def serialize(self, ar):
-        n = ar.read_count()
-        for i in range(n):
+        while ar.read_count() == 1:
             s = SearchWnd()
             s.serialize(ar)
             self.searchWindows.append(s)
