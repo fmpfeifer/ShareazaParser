@@ -1141,7 +1141,7 @@ class LibraryFolders:
             l = LibraryFolder()
             l.serialize(ar, version)
             self.folders.append(l)
-        if version > 6:
+        if version >= 6:
             self.album_root.serialize(ar, version)
 
 
