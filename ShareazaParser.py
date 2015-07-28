@@ -267,6 +267,7 @@ class XMLElement:
                 strElem += " " + a.name + "=\"" + a.value + "\""
             if self.value == '' and len(self.elements) == 0:
                 strElem += "/>"
+                f.out(3, strElem)
             else:
                 strElem += ">"
                 f.out(3, strElem)
