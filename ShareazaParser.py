@@ -51,6 +51,11 @@ def encode_in_addr(addr):
     return fmt.format(b)
 
 
+def encode_in_addr_v6(addr):
+    s = struct.unpack("4s4s4s4s4s4s4s4s", encode_hex(addr))
+    return "%s:%s:%s:%s:%s:%s:%s:%s" % s
+
+
 def encode_hex(s):
     return base64.b16encode(s)
 
@@ -367,6 +372,7 @@ class QueryHit:
         self.protocolid = 0
         self.clientId = ""
         self.address = ""
+        self.addressv6 = ""
         self.port = 0
         self.speed = 0
         self.s_speed = ""
@@ -415,6 +421,7 @@ class QueryHit:
         f.out(3, "Protocol ID: {:d}".format(self.protocolid))
         f.out(1, "Client ID: " + self.clientId)
         f.out(1, "Address: {}:{:d}".format(self.address, self.port))
+        f.out(1, "AddressV6: {}:{:d}".format(self.addressv6, self.port))
         f.out(2, "Speed: {:d} ({})".format(self.speed, self.s_speed))
         f.out(2, "Code: " + self.s_code)
         f.out(3, "Push: " + str(self.push))
@@ -456,6 +463,8 @@ class QueryHit:
             self.protocolid = ar.read_int()
         self.clientId = encode_guid(ar.read_bytes(16))
         self.address = encode_in_addr(ar.read_bytes(4))
+        if version >= 16:
+            self.addressv6 = encode_in_addr_v6(ar.read_bytes(16))
         self.port = ar.read_ushort()
         self.speed = ar.read_uint()
         self.s_speed = ar.read_string()
@@ -610,6 +619,8 @@ class MatchList:
         self.filterBogus = False
         self.filterDRM = False
         self.filterAdult = False
+        self.filterComents = False
+        self.filterPartial = False
         self.filterSuspicious = False
         self.bRegExp = False
         self.filterMinSize = 0
@@ -644,6 +655,7 @@ class MatchList:
                 self.bRegExp,
             ),
         )
+        f.out(2, "Filter .. Coments: {!s}, Partial: {!s}".format(str(self.filterComents), str(self.filterPartial)))
         f.out(2, "Filter ..Min Size: {:d}, MaxSize: {:d}".format(self.filterMinSize, self.filterMaxSize))
         f.out(3, "FilterSources: {:d}".format(self.filterSources))
         f.out(3, "Sort Column: {:d}".format(self.sortColumn))
@@ -670,6 +682,10 @@ class MatchList:
             self.filterAdult = ar.read_bool()
             self.filterSuspicious = ar.read_bool()
             self.bRegExp = ar.read_bool()
+
+        if self.version >= 17:
+            self.filterComents = ar.read_bool()
+            self.filterPartial = ar.read_bool()
 
         if self.version >= 10:
             self.filterMinSize = ar.read_ulong()
