@@ -1068,17 +1068,18 @@ class LibraryMaps:
             self.nameMapCount = ar.read_uint()
             self.pathMapCount = ar.read_uint()
 
-    def serialize2(self, ar, version):
+    def serialize2(self, ar, version, idx_to_file_dict):
         if version >= 18:
             n = ar.read_count()
-            for i in range(n):
+            for _ in range(n):
                 f = LibraryFile()
                 f.serialize(ar, version)
                 self.libraryFiles.append(f)
+                idx_to_file_dict[f.index] = f
 
 
 class LibraryFolder:
-    def __init__(self, parentFolder=None):
+    def __init__(self, idx_to_file_dict, parentFolder=None):
         self.folders = []
         self.files = []
         self.n_files = 0
@@ -1086,6 +1087,7 @@ class LibraryFolder:
         self.path = ""
         self.shared = 0
         self.expanded = False
+        self.idx_to_file_dict = idx_to_file_dict
         self.parentFolder = parentFolder
 
     def get_inherited_shared(self):
@@ -1128,7 +1130,7 @@ class LibraryFolder:
             self.expanded = ar.read_bool()
         n = ar.read_count()
         for i in range(n):
-            folder = LibraryFolder(self)
+            folder = LibraryFolder(self.idx_to_file_dict, self)
             folder.serialize(ar, version)
             self.folders.append(folder)
             self.n_files += folder.n_files
@@ -1140,13 +1142,14 @@ class LibraryFolder:
             self.files.append(file)
             self.n_files += 1
             self.n_volume += file.size
+            self.idx_to_file_dict[file.index] = file
 
 
 class AlbumFolder:
     def __init__(self):
         self.xml = XMLElement()
         self.album_folders = []
-        self.album_files = []
+        self.album_file_indexes = []
         self.schema_uri = ""
         self.coll_sha1 = ""
         self.guid = ""
@@ -1166,10 +1169,22 @@ class AlbumFolder:
         f.out(3, "Auto Delete: {}", self.auto_delete)
         f.out(3, "Best View: {}", self.best_view)
         self.xml.print_state(f)
-        f.out(3, "Files Indexes: {}", str(self.album_files))
+        f.out(3, "Files Indexes: {}", str(self.album_file_indexes))
         for fold in self.album_folders:
             fold.print_state(f)
         f.dec_ident()
+
+    def print_to_csv(self, w, idx_to_file_dict, path=None):
+        if path is None:
+            path = "[ALBUM]/" + self.name
+        else:
+            path += "/" + self.name
+        for fold in self.album_folders:
+            fold.print_to_csv(w, idx_to_file_dict, path)
+        for idx in self.album_file_indexes:
+            if idx in idx_to_file_dict:
+                file = idx_to_file_dict[idx]
+                file.print_to_csv(w, path)
 
     def serialize(self, ar, version):
         self.schema_uri = ar.read_string()
@@ -1190,12 +1205,13 @@ class AlbumFolder:
             self.album_folders.append(af)
         for i in range(ar.read_count()):
             idx = ar.read_uint()
-            self.album_files.append(idx)
+            self.album_file_indexes.append(idx)
 
 
 class LibraryFolders:
-    def __init__(self):
+    def __init__(self, idx_to_file_dict):
         self.folders = []
+        self.idx_to_file_dict = idx_to_file_dict
         self.album_root = AlbumFolder()
 
     def print_state(self, f):
@@ -1209,11 +1225,12 @@ class LibraryFolders:
     def print_to_csv(self, w):
         for fold in self.folders:
             fold.print_to_csv(w)
+        self.album_root.print_to_csv(w, self.idx_to_file_dict)
 
     def serialize(self, ar, version):
         n = ar.read_count()
         for _ in range(n):
-            libFolder = LibraryFolder()
+            libFolder = LibraryFolder(self.idx_to_file_dict)
             libFolder.serialize(ar, version)
             self.folders.append(libFolder)
         if version >= 6:
@@ -1283,9 +1300,10 @@ class Library:
         self.number = number
         self.time = None
         self.version = 0
+        self.idx_to_file_dict = dict()
         self.libraryDictionary = LibraryDictionary()
         self.libraryMaps = LibraryMaps()
-        self.libraryFolders = LibraryFolders()
+        self.libraryFolders = LibraryFolders(self.idx_to_file_dict)
         self.libraryHistory = LibraryHistory()
 
     def serialize(self, ar):
@@ -1295,7 +1313,7 @@ class Library:
         self.libraryMaps.serialize1(ar, self.version)
         self.libraryFolders.serialize(ar, self.version)
         self.libraryHistory.serialize(ar, self.version)
-        self.libraryMaps.serialize2(ar, self.version)
+        self.libraryMaps.serialize2(ar, self.version, self.idx_to_file_dict)
 
     def print_state(self, f):
         f.out(0, "LIBRARY {:d}", self.number)
