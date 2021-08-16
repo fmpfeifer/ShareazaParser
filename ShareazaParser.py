@@ -16,8 +16,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from __future__ import print_function
-
 import base64
 import csv
 import datetime
@@ -26,7 +24,6 @@ import os.path
 import struct
 import sys
 import traceback
-import types
 import uuid
 
 __author__ = "Fábio Melo Pfefer"
@@ -50,7 +47,8 @@ def encode_guid(h):
 
 def encode_in_addr(addr):
     b = struct.unpack("!BBBB", addr)
-    return "%d.%d.%d.%d" % b
+    fmt = "{:d}.{:d}.{:d}.{:d}"
+    return fmt.format(b)
 
 
 def encode_hex(s):
@@ -77,8 +75,8 @@ encoders = {
 def _reencode(b):
     if isinstance(b, bool):
         return str(b)
-    if isinstance(b, types.UnicodeType):
-        return b.encode("utf-8")
+    if isinstance(b, bytes):
+        return b.decode("utf-8")
     return b
 
 
@@ -112,7 +110,7 @@ class FileWriter:
                 print(("  " * (self.ident - 1)) + _reencode(fmt), file=self.file_handle)
         else:
             if type(text) is tuple:
-                self.out(level, fmt % tuple(map(_reencode, text)))
+                self.out(level, fmt.format(*map(_reencode, text)))
             else:
                 self.out(level, fmt, (text,))
 
@@ -128,15 +126,13 @@ class CSVWriter:
 
     def __init__(self, file_handle, header):
         self.file_handle = file_handle
-        titles = map(lambda x: x[0], header)
-        self.fmt = map(lambda x: x[1], header)
+        titles = list(map(lambda x: x[0], header))
+        self.fmt = list(map(lambda x: x[1], header))
         self.csvwriter = csv.writer(file_handle, delimiter=";")
         self.csvwriter.writerow(titles)
 
     def out(self, row):
-        self.csvwriter.writerow(
-            map(lambda x: x[1] % _reencode(x[0]), zip(row, self.fmt))
-        )
+        self.csvwriter.writerow([fmt.format(_reencode(data)) for data, fmt in zip(row, self.fmt)])
 
 
 class MFCParser:
@@ -191,7 +187,7 @@ class MFCParser:
         return self._read("<Q", 8)
 
     def read_hash(self, n, encoder="hex"):
-        ret = "\0" * n
+        ret = b"\0" * n
         valid = self.read_bool()
         if valid:
             ret = self.read_bytes(n)
@@ -228,7 +224,7 @@ class MFCParser:
             if s_unicode:
                 ret = self.read_bytes(w_length * 2).decode("UTF-16LE")
             else:
-                ret = self.read_bytes(w_length)
+                ret = self.read_bytes(w_length).decode("UTF-8")
 
         return ret
 
@@ -331,8 +327,8 @@ class QuerySearch:
         f.out(3, "Want XML: " + str(self.wantXML))
         f.out(3, "Want COM: " + str(self.wantCOM))
         f.out(3, "Want PFS: " + str(self.wantPFS))
-        f.out(3, "Min Size: %d" % (self.minSize,))
-        f.out(3, "Max Size: %d" % (self.maxSize,))
+        f.out(3, "Min Size: {:d}".format(self.minSize))
+        f.out(3, "Max Size: {:d}".format(self.maxSize))
         f.dec_ident()
 
     def serialize(self, ar):
@@ -416,16 +412,16 @@ class QueryHit:
         f.out(0, "QUERY HIT")
         f.inc_ident()
         f.out(1, "Search ID: " + self.searchId)
-        f.out(3, "Protocol ID: %d" % (self.protocolid,))
+        f.out(3, "Protocol ID: {:d}".format(self.protocolid))
         f.out(1, "Client ID: " + self.clientId)
-        f.out(1, "Address: %s:%d" % (self.address, self.port))
-        f.out(2, "Speed: %d (%s)" % (self.speed, self.s_speed))
+        f.out(1, "Address: {}:{:d}".format(self.address, self.port))
+        f.out(2, "Speed: {:d} ({})".format(self.speed, self.s_speed))
         f.out(2, "Code: " + self.s_code)
         f.out(3, "Push: " + str(self.push))
         f.out(3, "Busy: " + str(self.busy))
         f.out(3, "Stable:" + str(self.stable))
         f.out(3, "Measured: " + str(self.measured))
-        f.out(3, "UPSlots: %d  UPQueue: %d" % (self.upslots, self.upqueue))
+        f.out(3, "UPSlots: {:d}  UPQueue: {:d}".format(self.upslots, self.upqueue))
         f.out(3, "Chat: " + str(self.chat))
         f.out(3, "BrowseHost: " + str(self.browsehost))
         f.out(2, "SHA1: " + self.sha1)
@@ -435,17 +431,17 @@ class QueryHit:
         f.out(2, "MD5: " + self.md5)
         f.out(1, "URL: " + self.url)
         f.out(0, "Name: " + self.name.encode("UTF-8"))
-        f.out(2, "Index: %d" % (self.index,))
+        f.out(2, "Index: {:d}".format(self.index))
         f.out(3, "bSize: " + str(self.bSize))
-        f.out(2, "Size: %d" % (self.size,))
-        f.out(3, "Hit Sources: %d" % (self.hitSources,))
+        f.out(2, "Size: {:d}".format(self.size))
+        f.out(3, "Hit Sources: {:d}".format(self.hitSources))
         f.out(2, "Partial: " + str(self.partial))
         f.out(3, "Has Preview: " + str(self.preview))
         f.out(3, "Preview: " + self.s_preview)
         f.out(3, "Collection: " + str(self.collection))
         f.out(3, "SchemaURI: " + str(self.schemaURI))
         self.xml.print_state(f)
-        f.out(3, "Rating: %d" % (self.rating,))
+        f.out(3, "Rating: {:d}".format(self.rating))
         f.out(2, "Comments: " + self.comments)
         f.out(3, "Matched: " + str(self.matched))
         f.out(3, "Exact Match: " + str(self.exactMatch))
@@ -544,7 +540,7 @@ class MatchFile:
     def print_state(self, f):
         f.out(0, "MATCH FILE")
         f.inc_ident()
-        f.out(1, "Size: %d (%s)" % (self.size, self.s_size))
+        f.out(1, "Size: {:d} ({})".format(self.size, self.s_size))
         f.out(0, "SHA1: " + self.sha1)
         f.out(2, "Tiger: " + self.tiger)
         f.out(1, "ED2K: " + self.ED2K)
@@ -553,14 +549,14 @@ class MatchFile:
         f.out(3, "Busy: " + str(self.busy))
         f.out(3, "Push: " + str(self.push))
         f.out(3, "Stable: " + str(self.stable))
-        f.out(3, "Speed: %d (%s)" % (self.speed, self.s_speed))
+        f.out(3, "Speed: {:d} ({})".format(self.speed, self.s_speed))
         f.out(3, "Expanded: " + str(self.expanded))
         f.out(3, "Existing: " + str(self.existing))
         f.out(3, "Download: " + str(self.download))
         f.out(2, "One Valid: " + str(self.onevalid))
-        f.out(3, "Preview Size: %d" % (self.nPreview,))
+        f.out(3, "Preview Size: {:d}".format(self.nPreview))
         f.out(3, "Preview: " + self.preview.encode("base64"))
-        f.out(1, "Total Hits: %d" % (self.total,))
+        f.out(1, "Total Hits: {:d}".format(self.total))
         for h in self.hits:
             h.print_state(f)
         f.out(3, "Time: ##TODO - decode CTime struct")
@@ -626,49 +622,33 @@ class MatchList:
     def print_state(self, f):
         f.out(0, "MATCH LIST")
         f.inc_ident()
-        f.out(3, "Version: %d" % (self.version,))
+        f.out(3, "Version: {:d}".format(self.version))
         f.out(0, "Filter String: " + self.s_filter)
         f.out(
             2,
-            "Filter .. Busy: %s, Push: %s, Unstable: %s, Reject: %s, Local: %s, Bogus: %s"
-            % tuple(
-                map(
-                    str,
-                    (
-                        self.filterBusy,
-                        self.filterPush,
-                        self.filterUnstable,
-                        self.filterReject,
-                        self.filterLocal,
-                        self.filterBogus,
-                    ),
-                )
+            "Filter .. Busy: {!s}, Push: {!s}, Unstable: {!s}, Reject: {!s}, Local: {!s}, Bogus: {!s}".format(
+                self.filterBusy,
+                self.filterPush,
+                self.filterUnstable,
+                self.filterReject,
+                self.filterLocal,
+                self.filterBogus,
             ),
         )
         f.out(
             2,
-            "Filter .. DRM: %s, Adult: %s, Suspicious: %s, RegExp: %s"
-            % tuple(
-                map(
-                    str,
-                    (
-                        self.filterDRM,
-                        self.filterAdult,
-                        self.filterSuspicious,
-                        self.bRegExp,
-                    ),
-                )
+            "Filter .. DRM: {!s}, Adult: {!s}, Suspicious: {!s}, RegExp: {!s}".format(
+                self.filterDRM,
+                self.filterAdult,
+                self.filterSuspicious,
+                self.bRegExp,
             ),
         )
-        f.out(
-            2,
-            "Filter ..Min Size: %d, MaxSize: %d"
-            % (self.filterMinSize, self.filterMaxSize),
-        )
-        f.out(3, "FilterSources: %d" % (self.filterSources,))
-        f.out(3, "Sort Column: %d" % (self.sortColumn,))
+        f.out(2, "Filter ..Min Size: {:d}, MaxSize: {:d}".format(self.filterMinSize, self.filterMaxSize))
+        f.out(3, "FilterSources: {:d}".format(self.filterSources))
+        f.out(3, "Sort Column: {:d}".format(self.sortColumn))
         f.out(3, "Sort Dir: " + str(self.sortDir))
-        f.out(1, "Files: %d" % (self.nFiles,))
+        f.out(1, "Files: {:d}".format(self.nFiles))
         for fi in self.files:
             fi.print_state(f)
         f.dec_ident()
@@ -757,12 +737,12 @@ class ManagedSearch:
     def print_state(self, f):
         f.out(0, "MANAGED SEARCH")
         f.inc_ident()
-        f.out(3, "Version: %d" % (self.version,))
+        f.out(3, "Version: {:d}".format(self.version))
         f.out(2, "Allow G2: " + str(self.allowG2))
         f.out(2, "Allow G1: " + str(self.allowG1))
         f.out(2, "Allow ED2K: " + str(self.allowED2K))
         f.out(2, "Allow DC: " + str(self.allowDC))
-        f.out(2, "Priority: %d" % (self.priority,))
+        f.out(2, "Priority: {:d}".format(self.priority))
         f.out(2, "Active: " + str(self.active))
         f.out(2, "Receive: " + str(self.receive))
         self.querySearch.print_state(f)
@@ -790,7 +770,7 @@ class SearchWnd:
     def print_state(self, f):
         f.out(0, "SEARCH WINDOW")
         f.inc_ident()
-        f.out(3, "Version: %d" % (self.version,))
+        f.out(3, "Version: {:d}".format(self.version))
         for m in self.managedSearches:
             m.print_state(f)
         self.baseMatchSearch.print_state(f)
@@ -831,7 +811,7 @@ class LibraryDictionary:
     def print_state(self, f):
         f.out(3, "LIBRARY DICTIONARY")
         f.inc_ident()
-        f.out(3, "Words Count: %d" % (self.wordsCount,))
+        f.out(3, "Words Count: {:d}".format(self.wordsCount))
         f.dec_ident()
 
     def serialize(self, ar, version):
@@ -848,7 +828,7 @@ class SharedSource:
         f.out(2, "SHARED SOURCE")
         f.inc_ident()
         f.out(2, "URL: " + self.url)
-        f.out(2, "Time: %d (%s UTC)" % (self.time, format_datetime(self.time)))
+        f.out(2, "Time: {:f} ({} UTC)".format(self.time, format_datetime(self.time)))
         f.dec_ident()
 
     def serialize(self, ar, version):
@@ -863,33 +843,33 @@ class LibraryFile:
     """Represents a file in the Library"""
 
     csvheader = [
-        ("Path", "%s"),
-        ("Name", "%s"),
-        ("Index", "%d"),
-        ("Size", "%d"),
-        ("Time", "%.8f"),
-        ("FormattedTime (UTC)", "%s"),
-        ("Shared", "%s"),
-        ("VirtualSize", "%d"),
-        ("VirtualBase", "%d"),
-        ("SHA1", "%s"),
-        ("Tiger", "%s"),
-        ("MD5", "%s"),
-        ("ED2K", "%s"),
-        ("BTH", "%s"),
-        ("Verify", "%s"),
-        ("URI", "%s"),
-        ("MetadataAuto", "%s"),
-        ("MetadataTime", "%.8f"),
-        ("FormattedMetadataTime (UTC)", "%s"),
-        ("MetadataModified", "%s"),
-        ("Rating", "%d"),
-        ("Comments", "%s"),
-        ("ShareTags", "%s"),
-        ("HitsTotal", "%d"),
-        ("UploadsTotal", "%d"),
-        ("CachedPreview", "%s"),
-        ("Bogus", "%s"),
+        ("Path", "{}"),
+        ("Name", "{}"),
+        ("Index", "{:d}"),
+        ("Size", "{:d}"),
+        ("Time", "{:0.8f}"),
+        ("FormattedTime (UTC)", "{}"),
+        ("Shared", "{}"),
+        ("VirtualSize", "{:d}"),
+        ("VirtualBase", "{:d}"),
+        ("SHA1", "{}"),
+        ("Tiger", "{}"),
+        ("MD5", "{}"),
+        ("ED2K", "{}"),
+        ("BTH", "{}"),
+        ("Verify", "{}"),
+        ("URI", "{}"),
+        ("MetadataAuto", "{}"),
+        ("MetadataTime", "{:0.8f}"),
+        ("FormattedMetadataTime (UTC)", "{}"),
+        ("MetadataModified", "{}"),
+        ("Rating", "{:d}"),
+        ("Comments", "{}"),
+        ("ShareTags", "{}"),
+        ("HitsTotal", "{}"),
+        ("UploadsTotal", "{}"),
+        ("CachedPreview", "{}"),
+        ("Bogus", "{}"),
     ]
 
     def __init__(self, parentFolder=None):
@@ -930,36 +910,36 @@ class LibraryFile:
     def print_state(self, f):
         f.out(0, "LIBRARY FILE")
         f.inc_ident()
-        f.out(0, "Name: %s", self.name.encode("UTF-8"))
-        f.out(3, "Index: %d", self.index)
-        f.out(2, "Size: %d", self.size)
-        f.out(3, "Time: %d (%s UTC)", (self.time, format_datetime(self.time)))
-        f.out(2, "Shared: %s", _tri_state_decode[self.get_inherited_shared()])
+        f.out(0, "Name: {}", self.name)
+        f.out(3, "Index: {:d}", self.index)
+        f.out(2, "Size: {:d}", self.size)
+        f.out(3, "Time: {:f} ({} UTC)", (self.time, format_datetime(self.time)))
+        f.out(2, "Shared: {}", _tri_state_decode[self.get_inherited_shared()])
         f.out(
             3,
-            "Virtual Size: %d, Virtual Base: %d",
+            "Virtual Size: {:d}, Virtual Base: {:d}",
             (self.virtualSize, self.virtualBase),
         )
-        f.out(2, "SHA1: %s", self.sha1)
-        f.out(2, "Tiger: %s", self.tiger)
-        f.out(2, "MD5: %s", self.md5)
-        f.out(2, "ED2K: %s", self.ed2k)
-        f.out(2, "BTH: %s", self.bth)
-        f.out(3, "Verify: %s", _tri_state_decode[self.verify])
-        f.out(3, "URI: %s", self.uri)
+        f.out(2, "SHA1: {}", self.sha1)
+        f.out(2, "Tiger: {}", self.tiger)
+        f.out(2, "MD5: {}", self.md5)
+        f.out(2, "ED2K: {}", self.ed2k)
+        f.out(2, "BTH: {}", self.bth)
+        f.out(3, "Verify: {}", _tri_state_decode[self.verify])
+        f.out(3, "URI: {}", self.uri)
         f.out(
             3,
-            "Metadata Auto: %s, Metadata Time: %d, Metadata Modified: %s",
+            "Metadata Auto: {}, Metadata Time: {:f}, Metadata Modified: {}",
             (self.metadata_auto, self.metadata_time, self.metadata_modified),
         )
         self.metadata.print_state(f)
-        f.out(3, "Rating: %d" % (self.rating,))
-        f.out(3, "Comments: %s", self.comments)
-        f.out(3, "Share Tags: %s", self.share_tags)
-        f.out(3, "Hist Total: %d", self.hist_total)
-        f.out(3, "Uploads Total: %d", self.uploads_total)
-        f.out(3, "Cached Preview: %s", self.cached_preview)
-        f.out(3, "Bogus: %s", self.bogus)
+        f.out(3, "Rating: {:d}", self.rating)
+        f.out(3, "Comments: {}", self.comments)
+        f.out(3, "Share Tags: {}", self.share_tags)
+        f.out(3, "Hist Total: {:d}", self.hist_total)
+        f.out(3, "Uploads Total: {:d}", self.uploads_total)
+        f.out(3, "Cached Preview: {}", self.cached_preview)
+        f.out(3, "Bogus: {}", self.bogus)
         for s in self.shared_sources:
             s.print_state(f)
 
@@ -968,7 +948,7 @@ class LibraryFile:
     def print_to_csv(self, writer, path):
         row = [
             path,
-            self.name.encode("UTF-8"),
+            self.name,
             self.index,
             self.size,
             convert_to_csv_timestamp(self.time),
@@ -1073,10 +1053,10 @@ class LibraryMaps:
     def print_state(self, f):
         f.out(0, "LIBRARY MAPS")
         f.inc_ident()
-        f.out(3, "Next Index: %d", self.nextIndex)
-        f.out(3, "Index Map Count: %d", self.indexMapCount)
-        f.out(3, "Name Map Count: %d", self.nameMapCount)
-        f.out(3, "Path Map Count: %d", self.pathMapCount)
+        f.out(3, "Next Index: {:d}", self.nextIndex)
+        f.out(3, "Index Map Count: {:d}", self.indexMapCount)
+        f.out(3, "Name Map Count: {:d}", self.nameMapCount)
+        f.out(3, "Path Map Count: {:d}", self.pathMapCount)
         for lf in self.libraryFiles:
             lf.print_state(f)
         f.dec_ident()
@@ -1117,11 +1097,11 @@ class LibraryFolder:
     def print_state(self, f):
         f.out(0, "LIBRARY FOLDER")
         f.inc_ident()
-        f.out(1, "Files: %d", self.n_files)
-        f.out(1, "Volume: %d", self.n_volume)
-        f.out(0, "Path: %s", self.path)
-        f.out(0, "Shared: %s", _tri_state_decode[self.get_inherited_shared()])
-        f.out(3, "Expanded: %s", self.expanded)
+        f.out(1, "Files: {:d}", self.n_files)
+        f.out(1, "Volume: {:d}", self.n_volume)
+        f.out(0, "Path: {}", self.path)
+        f.out(0, "Shared: {}", _tri_state_decode[self.get_inherited_shared()])
+        f.out(3, "Expanded: {}", self.expanded)
         for fold in self.folders:
             fold.print_state(f)
         for fi in self.files:
@@ -1178,15 +1158,15 @@ class AlbumFolder:
     def print_state(self, f):
         f.out(0, "ALBUM FOLDER")
         f.inc_ident()
-        f.out(0, "Name: %s", self.name)
-        f.out(2, "GUID: %s", self.guid)
-        f.out(3, "Collection SHA1: %s", self.coll_sha1)
-        f.out(3, "Schema URI: %s", self.schema_uri)
-        f.out(3, "Expanded: %s", self.expanded)
-        f.out(3, "Auto Delete: %s", self.auto_delete)
-        f.out(3, "Best View: %s", self.best_view)
+        f.out(0, "Name: {}", self.name)
+        f.out(2, "GUID: {}", self.guid)
+        f.out(3, "Collection SHA1: {}", self.coll_sha1)
+        f.out(3, "Schema URI: {}", self.schema_uri)
+        f.out(3, "Expanded: {}", self.expanded)
+        f.out(3, "Auto Delete: {}", self.auto_delete)
+        f.out(3, "Best View: {}", self.best_view)
         self.xml.print_state(f)
-        f.out(3, "Files Indexes: %s", str(self.album_files))
+        f.out(3, "Files Indexes: {}", str(self.album_files))
         for fold in self.album_folders:
             fold.print_state(f)
         f.dec_ident()
@@ -1248,8 +1228,8 @@ class LibraryRecent:
     def print_state(self, f):
         f.out(2, "LIBRARY RECENT")
         f.inc_ident()
-        f.out(2, "Time: %d", self.time)
-        f.out(2, "Index: %d", self.index)
+        f.out(2, "Time: {:f}", self.time)
+        f.out(2, "Index: {:d}", self.index)
         f.dec_ident()
 
     def serialize(self, ar, version):
@@ -1268,17 +1248,17 @@ class LibraryHistory:
     def print_state(self, f):
         f.out(2, "LIBRARY HISTORY")
         f.inc_ident()
-        f.out(2, "Last Seeded Torrent Path: %s", self.last_seeded_torrent_path)
-        f.out(2, "Last Seeded Torrent Name: %s", self.last_seeded_torrent_name)
+        f.out(2, "Last Seeded Torrent Path: {}", self.last_seeded_torrent_path)
+        f.out(2, "Last Seeded Torrent Name: {}", self.last_seeded_torrent_name)
         f.out(
             2,
-            "Last Seeded Torrent Time Last Seeded: %d (%s UTC)",
+            "Last Seeded Torrent Time Last Seeded: {:d} ({} UTC)",
             (
                 self.last_seeded_torrent_tlastseeded,
                 format_datetime(self.last_seeded_torrent_tlastseeded),
             ),
         )
-        f.out(2, "Last Seeded Torrent BTH: %s", self.last_seeded_torrent_bth)
+        f.out(2, "Last Seeded Torrent BTH: {}", self.last_seeded_torrent_bth)
         for rec in self.list:
             rec.print_state(f)
         f.dec_ident()
@@ -1318,9 +1298,9 @@ class Library:
         self.libraryMaps.serialize2(ar, self.version)
 
     def print_state(self, f):
-        f.out(0, "LIBRARY %d" % (self.number,))
+        f.out(0, "LIBRARY {:d}", self.number)
         f.inc_ident()
-        f.out(3, "Version: %d" % (self.version,))
+        f.out(3, "Version: {:d}", self.version)
         f.out(3, "Time: ##TODO - decode FILETIME struct")
         self.libraryFolders.print_state(f)
         self.libraryHistory.print_state(f)
@@ -1338,30 +1318,24 @@ class Library:
 
 
 def usage(command):
-    print(
-        "ShareazaParser - a parser for Shareaza's Library1.dat, Library2.dat and Searches.dat"
-    )
-    print("Version: %s" % (__version__,))
-    print("This program needs python version >= 2.5 and < 3 (2.7 recommended)")
+    print("ShareazaParser - a parser for Shareaza's Library1.dat, Library2.dat and Searches.dat")
+    print("Version: {}".format(__version__))
+    print("This program needs python version >= 3.5")
     print("")
     print("Usage:")
-    print("%s [-h] [-l level] [-c] [-s]" % (command,))
+    print("{} [-h] [-l level] [-c] [-s]".format(command))
     print("")
     print(" -h: print this help and exits")
     print(" -c: output text to stdout")
     print(" -l level  (--level=level):")
     print("   Choose output level (only valid for text output):")
     print("     0 - Very Important: Only very important information is displayed")
-    print(
-        "     1 - Important: Important information and level 0 information is displayed"
-    )
+    print("     1 - Important: Important information and level 0 information is displayed")
     print("     2 - Useful: Useful information and level 1 information is displayed")
     print("     3 - Debug(default): All available information is displayed")
     print(" -s: generate csv spreadsheet (instead of text)")
     print("")
-    print(
-        " Timestamps are exported as Unix epoch in text files, or as Excel date in csv files."
-    )
+    print(" Timestamps are exported as Unix epoch in text files, or as Excel date in csv files.")
 
 
 def main(command, argv):
@@ -1371,7 +1345,7 @@ def main(command, argv):
     tocsv = False
 
     try:
-        opts, args = getopt.getopt(argv, "hl:cs", ["level="])
+        opts, _ = getopt.getopt(argv, "hl:cs", ["level="])
     except getopt.GetoptError:
         usage(command)
         sys.exit(2)
@@ -1418,21 +1392,21 @@ def main(command, argv):
                 traceback.print_tb(exc_traceback, file=sys.stderr)
 
     for lib in [1, 2]:
-        if os.path.isfile("Library%d.dat" % (lib,)):
+        if os.path.isfile("Library{:d}.dat".format(lib)):
             try:
-                parser = MFCParser("Library%d.dat" % (lib,))
+                parser = MFCParser("Library{:d}.dat".format(lib))
                 library = Library(lib)
                 library.serialize(parser)
                 parser.close()
                 if tocsv:
-                    fout = open("Library%d.csv" % (lib,), "wb")
-                    writer = CSVWriter(fout, LibraryFile.csvheader)
-                    library.print_to_csv(writer)
+                    with open("Library{:d}.csv".format(lib), "wt", encoding="utf-8", newline="") as fout:
+                        writer = CSVWriter(fout, LibraryFile.csvheader)
+                        library.print_to_csv(writer)
                 else:
                     if tostdout:
                         fout = sys.stdout
                     else:
-                        fout = open("Library%d.txt" % (lib,), "wt")
+                        fout = open("Library{:d}.txt".format(lib), "wt", encoding="utf-8")
                     out = FileWriter(fout, level)
                     library.print_state(out)
                     if not tostdout:
@@ -1442,7 +1416,7 @@ def main(command, argv):
                 print(type(inst))
                 print(inst.args)
                 print(inst)
-                exc_type, exc_value, exc_traceback = sys.exc_info()
+                _, _, exc_traceback = sys.exc_info()
                 traceback.print_tb(exc_traceback, file=sys.stderr)
 
     if not parsed:
