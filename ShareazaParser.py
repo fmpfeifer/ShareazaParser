@@ -17,10 +17,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from __future__ import print_function
-import sys, os.path, getopt
-import struct, uuid, base64
-import traceback, types
-import csv, datetime
+import sys
+import os.path
+import getopt
+import struct
+import uuid
+import base64
+import traceback
+import types
+import csv
+import datetime
 
 __author__ = "Fábio Melo Pfefer"
 __copyright__ = "Copyright 2014, Fabio Melo Pfeifer"
@@ -32,8 +38,6 @@ __email__ = "fmpfeifer@gmail.com"
 __status__ = "Beta"
 
 
-
-
 ### utilities
 def encode_guid(h):
     guid = uuid.UUID(bytes=h)
@@ -42,7 +46,7 @@ def encode_guid(h):
 
 
 def encode_in_addr(addr):
-    b = struct.unpack('!BBBB', addr)
+    b = struct.unpack("!BBBB", addr)
     return "%d.%d.%d.%d" % b
 
 
@@ -59,11 +63,11 @@ def encode_base64(s):
 
 
 encoders = {
-    'hex': encode_hex,
-    'base16': encode_hex,
-    'base32': encode_base32,
-    'base64': encode_base64,
-    'guid': encode_guid
+    "hex": encode_hex,
+    "base16": encode_hex,
+    "base32": encode_base32,
+    "base64": encode_base64,
+    "guid": encode_guid,
 }
 
 
@@ -71,12 +75,12 @@ def _reencode(b):
     if type(b) is bool:
         return str(b)
     if type(b) is types.UnicodeType:
-        return b.encode('utf-8')
+        return b.encode("utf-8")
     return b
 
 
 def convert_to_epoch(timestamp):
-    return timestamp/10000000-11644473600
+    return timestamp / 10000000 - 11644473600
 
 
 def convert_to_csv_timestamp(epoch):
@@ -85,7 +89,7 @@ def convert_to_csv_timestamp(epoch):
 
 def format_datetime(epoch):
     try:
-        return datetime.datetime.fromtimestamp(epoch).strftime('%Y-%m-%d %H:%M:%S')
+        return datetime.datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M:%S")
     except:
         pass
     return "0000-00-00 00:00:00"
@@ -115,6 +119,7 @@ class FileWriter:
     def dec_ident(self):
         self.ident -= 1
 
+
 class CSVWriter:
     """CSV Output generator"""
 
@@ -122,18 +127,20 @@ class CSVWriter:
         self.file_handle = file_handle
         titles = map(lambda x: x[0], header)
         self.fmt = map(lambda x: x[1], header)
-        self.csvwriter = csv.writer(file_handle, delimiter=';')
+        self.csvwriter = csv.writer(file_handle, delimiter=";")
         self.csvwriter.writerow(titles)
 
     def out(self, row):
-        self.csvwriter.writerow(map(lambda x: x[1] % _reencode(x[0]), zip(row, self.fmt)))
+        self.csvwriter.writerow(
+            map(lambda x: x[1] % _reencode(x[0]), zip(row, self.fmt))
+        )
 
 
 class MFCParser:
     """Simple CArchive parser"""
 
     def __init__(self, filename):
-        self._file = open(filename, 'rb')
+        self._file = open(filename, "rb")
         self.position = 0
 
     def close(self):
@@ -180,30 +187,29 @@ class MFCParser:
     def read_file_time(self):
         return self._read("<Q", 8)
 
-    def read_hash(self, n, encoder='hex'):
-        ret = '\0' * n
+    def read_hash(self, n, encoder="hex"):
+        ret = "\0" * n
         valid = self.read_bool()
         if valid:
             ret = self.read_bytes(n)
         return encoders[encoder](ret)
 
-
     def _read_string_len(self):
         b_length = self.read_ubyte()
-        if b_length < 0xff:
+        if b_length < 0xFF:
             return b_length
 
         w_length = self.read_ushort()
-        if w_length == 0xfffe:
-            return -1   #Unicode String prefix, length will follow
-        elif w_length == 0xffff:
+        if w_length == 0xFFFE:
+            return -1  # Unicode String prefix, length will follow
+        elif w_length == 0xFFFF:
             w_length = self.read_ushort()
             return w_length
         return w_length
 
     def read_count(self):
         n = self.read_ushort()
-        if n == 0xffff:
+        if n == 0xFFFF:
             return self.read_uint()
         return n
 
@@ -214,10 +220,10 @@ class MFCParser:
             w_length = self._read_string_len()
             s_unicode = True
 
-        ret = ''
+        ret = ""
         if w_length != 0:
             if s_unicode:
-                ret = self.read_bytes(w_length * 2).decode('UTF-16LE')
+                ret = self.read_bytes(w_length * 2).decode("UTF-16LE")
             else:
                 ret = self.read_bytes(w_length)
 
@@ -226,8 +232,8 @@ class MFCParser:
 
 class XMLAttribute:
     def __init__(self):
-        self.name = ''
-        self.value = ''
+        self.name = ""
+        self.value = ""
 
     def serialize(self, ar):
         self.name = ar.read_string()
@@ -238,8 +244,8 @@ class XMLElement:
     def __init__(self):
         self.attributes = []
         self.elements = []
-        self.name = ''
-        self.value = ''
+        self.name = ""
+        self.value = ""
 
     def serialize(self, ar):
         self.name = ar.read_string()
@@ -248,7 +254,7 @@ class XMLElement:
         for i in range(n):
             attr = XMLAttribute()
             attr.serialize(ar)
-            if attr.name != '':
+            if attr.name != "":
                 self.attributes.append(attr)
                 ## verify if attr existis
         n = ar.read_count()
@@ -259,19 +265,19 @@ class XMLElement:
 
     def print_state(self, f, inXml=False):
         f.inc_ident()
-        if self.name != '':
+        if self.name != "":
             if inXml == False:
                 f.out(3, "XML Data")
             strElem = "<" + self.name
             for a in self.attributes:
-                strElem += " " + a.name + "=\"" + a.value + "\""
-            if self.value == '' and len(self.elements) == 0:
+                strElem += " " + a.name + '="' + a.value + '"'
+            if self.value == "" and len(self.elements) == 0:
                 strElem += "/>"
                 f.out(3, strElem)
             else:
                 strElem += ">"
                 f.out(3, strElem)
-                if self.value != '':
+                if self.value != "":
                     f.out(3, self.value)
                 if len(self.elements) != 0:
                     for e in self.elements:
@@ -279,20 +285,21 @@ class XMLElement:
                 f.out(3, "</" + self.name + ">")
         f.dec_ident()
 
+
 ################################################################################################
 
 
 ### Searches.dat parser
 class QuerySearch:
     def __init__(self):
-        self.guid = ''
-        self.sSearch = ''
-        self.sha1 = ''
-        self.tiger = ''
-        self.ed2k = ''
-        self.bth = ''
-        self.md5 = ''
-        self.uri = ''
+        self.guid = ""
+        self.sSearch = ""
+        self.sha1 = ""
+        self.tiger = ""
+        self.ed2k = ""
+        self.bth = ""
+        self.md5 = ""
+        self.uri = ""
         self.xml = XMLElement()
         self.wantURL = False
         self.wantDN = False
@@ -331,7 +338,7 @@ class QuerySearch:
         self.sha1 = ar.read_hash(20)
         self.tiger = ar.read_hash(24)
         self.ed2k = ar.read_hash(16)
-        self.bth = ar.read_hash(20, encoder='base32')
+        self.bth = ar.read_hash(20, encoder="base32")
 
         if self.version >= 7:
             self.md5 = ar.read_hash(16)
@@ -355,14 +362,14 @@ class QuerySearch:
 
 class QueryHit:
     def __init__(self):
-        self.searchId = ''
+        self.searchId = ""
         self.protocolid = 0
-        self.clientId = ''
-        self.address = ''
+        self.clientId = ""
+        self.address = ""
         self.port = 0
         self.speed = 0
-        self.s_speed = ''
-        self.s_code = ''
+        self.s_speed = ""
+        self.s_code = ""
         self.push = False
         self.busy = False
         self.stable = False
@@ -372,13 +379,13 @@ class QueryHit:
         self.chat = False
         self.browsehost = False
 
-        self.sha1 = ''
-        self.tiger = ''
-        self.ed2k = ''
-        self.bth = ''
-        self.md5 = ''
-        self.url = ''
-        self.name = ''
+        self.sha1 = ""
+        self.tiger = ""
+        self.ed2k = ""
+        self.bth = ""
+        self.md5 = ""
+        self.url = ""
+        self.name = ""
         self.index = 0
         self.bSize = False
 
@@ -386,25 +393,25 @@ class QueryHit:
         self.hitSources = 0
         self.partial = 0
         self.preview = False
-        self.s_preview = ''
+        self.s_preview = ""
         self.collection = False
-        self.schemaURI = ''
-        self.schemaPlural = ''
+        self.schemaURI = ""
+        self.schemaPlural = ""
         self.xml = XMLElement()
         self.rating = 0
-        self.comments = ''
+        self.comments = ""
 
         self.matched = False
         self.exactMatch = False
         self.bogus = False
         self.download = False
-        self.nick = ''
+        self.nick = ""
 
     def print_state(self, f):
         f.out(0, "QUERY HIT")
         f.inc_ident()
         f.out(1, "Search ID: " + self.searchId)
-        f.out(3, "Protocol ID: %d" % (self.protocolid, ))
+        f.out(3, "Protocol ID: %d" % (self.protocolid,))
         f.out(1, "Client ID: " + self.clientId)
         f.out(1, "Address: %s:%d" % (self.address, self.port))
         f.out(2, "Speed: %d (%s)" % (self.speed, self.s_speed))
@@ -422,7 +429,7 @@ class QueryHit:
         f.out(2, "BTH:" + self.bth)
         f.out(2, "MD5: " + self.md5)
         f.out(1, "URL: " + self.url)
-        f.out(0, "Name: " + self.name.encode('UTF-8'))
+        f.out(0, "Name: " + self.name.encode("UTF-8"))
         f.out(2, "Index: %d" % (self.index,))
         f.out(3, "bSize: " + str(self.bSize))
         f.out(2, "Size: %d" % (self.size,))
@@ -467,7 +474,7 @@ class QueryHit:
         self.ed2k = ar.read_hash(16)
 
         if version >= 13:
-            self.bth = ar.read_hash(20, encoder='base32')
+            self.bth = ar.read_hash(20, encoder="base32")
             self.md5 = ar.read_hash(16)
 
         self.url = ar.read_string()
@@ -489,7 +496,7 @@ class QueryHit:
             self.collection = ar.read_bool()
 
         self.schemaURI = ar.read_string()
-        self.schemaPlural = ar.read_string() #unused
+        self.schemaPlural = ar.read_string()  # unused
         if len(self.schemaURI) > 0:
             self.xml.serialize(ar)
 
@@ -509,25 +516,25 @@ class MatchFile:
     def __init__(self):
         self.hits = []
         self.size = 0
-        self.s_size = ''
-        self.sha1 = ''
-        self.tiger = ''
-        self.ED2K = ''
-        self.bth = ''
-        self.md5 = ''
+        self.s_size = ""
+        self.sha1 = ""
+        self.tiger = ""
+        self.ED2K = ""
+        self.bth = ""
+        self.md5 = ""
         self.busy = False
         self.push = False
         self.stable = False
         self.speed = 0
-        self.s_speed = ''
+        self.s_speed = ""
         self.expanded = False
         self.existing = False
         self.download = False
         self.onevalid = False
         self.nPreview = 0
-        self.preview = ''
+        self.preview = ""
         self.total = 0
-        self.time = ''
+        self.time = ""
 
     def print_state(self, f):
         f.out(0, "MATCH FILE")
@@ -547,7 +554,7 @@ class MatchFile:
         f.out(3, "Download: " + str(self.download))
         f.out(2, "One Valid: " + str(self.onevalid))
         f.out(3, "Preview Size: %d" % (self.nPreview,))
-        f.out(3, "Preview: " + self.preview.encode('base64'))
+        f.out(3, "Preview: " + self.preview.encode("base64"))
         f.out(1, "Total Hits: %d" % (self.total,))
         for h in self.hits:
             h.print_state(f)
@@ -565,7 +572,7 @@ class MatchFile:
         self.tiger = ar.read_hash(24)
         self.ED2K = ar.read_hash(16)
         if version >= 13:
-            self.bth = ar.read_hash(20, encoder='base32')
+            self.bth = ar.read_hash(20, encoder="base32")
             self.md5 = ar.read_hash(16)
 
         self.busy = ar.read_bool()
@@ -593,7 +600,7 @@ class MatchList:
     def __init__(self):
         self.files = []
         self.version = 0
-        self.s_filter = ''
+        self.s_filter = ""
         self.filterBusy = False
         self.filterPush = False
         self.filterUnstable = False
@@ -616,13 +623,43 @@ class MatchList:
         f.inc_ident()
         f.out(3, "Version: %d" % (self.version,))
         f.out(0, "Filter String: " + self.s_filter)
-        f.out(2, "Filter .. Busy: %s, Push: %s, Unstable: %s, Reject: %s, Local: %s, Bogus: %s"
-                 % tuple(map(str, (
-            self.filterBusy, self.filterPush, self.filterUnstable, self.filterReject, self.filterLocal,
-            self.filterBogus))))
-        f.out(2, "Filter .. DRM: %s, Adult: %s, Suspicious: %s, RegExp: %s" % tuple(
-            map(str, (self.filterDRM, self.filterAdult, self.filterSuspicious, self.bRegExp))))
-        f.out(2, "Filter ..Min Size: %d, MaxSize: %d" % (self.filterMinSize, self.filterMaxSize))
+        f.out(
+            2,
+            "Filter .. Busy: %s, Push: %s, Unstable: %s, Reject: %s, Local: %s, Bogus: %s"
+            % tuple(
+                map(
+                    str,
+                    (
+                        self.filterBusy,
+                        self.filterPush,
+                        self.filterUnstable,
+                        self.filterReject,
+                        self.filterLocal,
+                        self.filterBogus,
+                    ),
+                )
+            ),
+        )
+        f.out(
+            2,
+            "Filter .. DRM: %s, Adult: %s, Suspicious: %s, RegExp: %s"
+            % tuple(
+                map(
+                    str,
+                    (
+                        self.filterDRM,
+                        self.filterAdult,
+                        self.filterSuspicious,
+                        self.bRegExp,
+                    ),
+                )
+            ),
+        )
+        f.out(
+            2,
+            "Filter ..Min Size: %d, MaxSize: %d"
+            % (self.filterMinSize, self.filterMaxSize),
+        )
         f.out(3, "FilterSources: %d" % (self.filterSources,))
         f.out(3, "Sort Column: %d" % (self.sortColumn,))
         f.out(3, "Sort Dir: " + str(self.sortDir))
@@ -633,7 +670,7 @@ class MatchList:
 
     def serialize(self, ar):
         self.version = ar.read_int()
-        #assert version >= 8
+        # assert version >= 8
 
         self.s_filter = ar.read_string()
         self.filterBusy = ar.read_bool()
@@ -669,7 +706,7 @@ class MatchList:
 
 class BaseMatchSearch:
     def __init__(self):
-        self.schema = ''
+        self.schema = ""
         self.matchList = MatchList()
 
     def serialize(self, ar):
@@ -774,12 +811,9 @@ class Searches:
 
     #################################################################################################3
 
+
 ### Library1.dat and Library2.dat parser
-_tri_state_decode = {
-    0: "Unknown",
-    1: "False",
-    2: "True"
-}
+_tri_state_decode = {0: "Unknown", 1: "False", 2: "True"}
 
 
 class LibraryDictionary:
@@ -799,14 +833,14 @@ class LibraryDictionary:
 
 class SharedSource:
     def __init__(self):
-        self.url = ''
+        self.url = ""
         self.time = 0
 
     def print_state(self, f):
         f.out(2, "SHARED SOURCE")
         f.inc_ident()
         f.out(2, "URL: " + self.url)
-        f.out(2, "Time: %d (%s UTC)" % (self.time,format_datetime(self.time)))
+        f.out(2, "Time: %d (%s UTC)" % (self.time, format_datetime(self.time)))
         f.dec_ident()
 
     def serialize(self, ar, version):
@@ -820,35 +854,58 @@ class SharedSource:
 class LibraryFile:
     """Represents a file in the Library"""
 
-    csvheader = [("Path", "%s"), ("Name", "%s"), ("Index", "%d"), ("Size", "%d") , ("Time", "%.8f"),
-                 ("FormattedTime (UTC)", "%s"), ("Shared", "%s"), ("VirtualSize", "%d"), ("VirtualBase", "%d"),
-                 ("SHA1", "%s"), ("Tiger", "%s"), ("MD5", "%s"), ("ED2K","%s"), ("BTH", "%s"), ("Verify", "%s"),
-                 ("URI", "%s"), ("MetadataAuto", "%s"), ("MetadataTime", "%.8f"), ("FormattedMetadataTime (UTC)", "%s"),
-                 ("MetadataModified", "%s"), ("Rating", "%d"), ("Comments", "%s"), ("ShareTags", "%s"),
-                 ("HitsTotal", "%d"), ("UploadsTotal", "%d"), ("CachedPreview", "%s"), ("Bogus", "%s")]
+    csvheader = [
+        ("Path", "%s"),
+        ("Name", "%s"),
+        ("Index", "%d"),
+        ("Size", "%d"),
+        ("Time", "%.8f"),
+        ("FormattedTime (UTC)", "%s"),
+        ("Shared", "%s"),
+        ("VirtualSize", "%d"),
+        ("VirtualBase", "%d"),
+        ("SHA1", "%s"),
+        ("Tiger", "%s"),
+        ("MD5", "%s"),
+        ("ED2K", "%s"),
+        ("BTH", "%s"),
+        ("Verify", "%s"),
+        ("URI", "%s"),
+        ("MetadataAuto", "%s"),
+        ("MetadataTime", "%.8f"),
+        ("FormattedMetadataTime (UTC)", "%s"),
+        ("MetadataModified", "%s"),
+        ("Rating", "%d"),
+        ("Comments", "%s"),
+        ("ShareTags", "%s"),
+        ("HitsTotal", "%d"),
+        ("UploadsTotal", "%d"),
+        ("CachedPreview", "%s"),
+        ("Bogus", "%s"),
+    ]
 
-    def __init__(self, parentFolder = None):
+    def __init__(self, parentFolder=None):
         self.metadata = XMLElement()
         self.shared_sources = []
-        self.name = ''
+        self.name = ""
         self.index = 0
         self.size = 0
         self.time = 0
         self.shared = 0
         self.virtualSize = 0
         self.virtualBase = 0
-        self.sha1 = ''
-        self.tiger = ''
-        self.md5 = ''
-        self.ed2k = ''
-        self.bth = ''
+        self.sha1 = ""
+        self.tiger = ""
+        self.md5 = ""
+        self.ed2k = ""
+        self.bth = ""
         self.verify = 0
-        self.uri = ''
+        self.uri = ""
         self.metadata_auto = False
         self.metadata_time = 0
         self.rating = 0
-        self.comments = ''
-        self.share_tags = ''
+        self.comments = ""
+        self.share_tags = ""
         self.metadata_modified = False
         self.hist_total = 0
         self.uploads_total = 0
@@ -870,7 +927,11 @@ class LibraryFile:
         f.out(2, "Size: %d", self.size)
         f.out(3, "Time: %d (%s UTC)", (self.time, format_datetime(self.time)))
         f.out(2, "Shared: %s", _tri_state_decode[self.get_inherited_shared()])
-        f.out(3, "Virtual Size: %d, Virtual Base: %d", (self.virtualSize, self.virtualBase))
+        f.out(
+            3,
+            "Virtual Size: %d, Virtual Base: %d",
+            (self.virtualSize, self.virtualBase),
+        )
         f.out(2, "SHA1: %s", self.sha1)
         f.out(2, "Tiger: %s", self.tiger)
         f.out(2, "MD5: %s", self.md5)
@@ -878,8 +939,11 @@ class LibraryFile:
         f.out(2, "BTH: %s", self.bth)
         f.out(3, "Verify: %s", _tri_state_decode[self.verify])
         f.out(3, "URI: %s", self.uri)
-        f.out(3, "Metadata Auto: %s, Metadata Time: %d, Metadata Modified: %s",
-              (self.metadata_auto, self.metadata_time, self.metadata_modified))
+        f.out(
+            3,
+            "Metadata Auto: %s, Metadata Time: %d, Metadata Modified: %s",
+            (self.metadata_auto, self.metadata_time, self.metadata_modified),
+        )
         self.metadata.print_state(f)
         f.out(3, "Rating: %d" % (self.rating,))
         f.out(3, "Comments: %s", self.comments)
@@ -894,12 +958,35 @@ class LibraryFile:
         f.dec_ident()
 
     def print_to_csv(self, writer, path):
-        row = [path, self.name.encode("UTF-8"), self.index, self.size, convert_to_csv_timestamp(self.time),
-               format_datetime(self.time), _tri_state_decode[self.get_inherited_shared()], self.virtualSize,
-               self.virtualBase, self.sha1, self.tiger, self.md5, self.ed2k, self.bth, _tri_state_decode[self.verify],
-               self.uri, self.metadata_auto, convert_to_csv_timestamp(self.metadata_time),
-               format_datetime(self.metadata_time), self.metadata_modified, self.rating, self.comments, self.share_tags,
-               self.hist_total, self.uploads_total, self.cached_preview, self.bogus]
+        row = [
+            path,
+            self.name.encode("UTF-8"),
+            self.index,
+            self.size,
+            convert_to_csv_timestamp(self.time),
+            format_datetime(self.time),
+            _tri_state_decode[self.get_inherited_shared()],
+            self.virtualSize,
+            self.virtualBase,
+            self.sha1,
+            self.tiger,
+            self.md5,
+            self.ed2k,
+            self.bth,
+            _tri_state_decode[self.verify],
+            self.uri,
+            self.metadata_auto,
+            convert_to_csv_timestamp(self.metadata_time),
+            format_datetime(self.metadata_time),
+            self.metadata_modified,
+            self.rating,
+            self.comments,
+            self.share_tags,
+            self.hist_total,
+            self.uploads_total,
+            self.cached_preview,
+            self.bogus,
+        ]
         writer.out(row)
 
     def serialize(self, ar, version):
@@ -911,13 +998,13 @@ class LibraryFile:
             self.size = ar.read_uint()
         self.time = convert_to_epoch(ar.read_ulong())
         if version >= 5:
-            self.shared = ar.read_uint() # TRISATE: 0 - unknown, 1 FALSE, 2 TRUE
+            self.shared = ar.read_uint()  # TRISATE: 0 - unknown, 1 FALSE, 2 TRUE
         else:
             b = ar.read_byte()
             if b == 0:
-                self.shared = 1 # FALSE
+                self.shared = 1  # FALSE
             else:
-                self.shared = 0 #UNKNOWN
+                self.shared = 0  # UNKNOWN
 
         if version >= 21:
             self.virtualSize = ar.read_ulong()
@@ -931,9 +1018,9 @@ class LibraryFile:
             self.md5 = ar.read_hash(16)
             self.ed2k = ar.read_hash(16)
         if version >= 26:
-            self.bth = ar.read_hash(20, encoder='base32')
+            self.bth = ar.read_hash(20, encoder="base32")
         if version >= 4:
-            self.verify = ar.read_uint() # TRISTATE
+            self.verify = ar.read_uint()  # TRISTATE
         self.uri = ar.read_string()
         if len(self.uri) > 0:
             if version < 27:
@@ -1003,12 +1090,12 @@ class LibraryMaps:
 
 
 class LibraryFolder:
-    def __init__(self, parentFolder = None):
+    def __init__(self, parentFolder=None):
         self.folders = []
         self.files = []
         self.n_files = 0
         self.n_volume = 0
-        self.path = ''
+        self.path = ""
         self.shared = 0
         self.expanded = False
         self.parentFolder = parentFolder
@@ -1042,13 +1129,13 @@ class LibraryFolder:
     def serialize(self, ar, version):
         self.path = ar.read_string()
         if version >= 5:
-            self.shared = ar.read_uint() # TRISATE: 0 - unknown, 1 FALSE, 2 TRUE
+            self.shared = ar.read_uint()  # TRISATE: 0 - unknown, 1 FALSE, 2 TRUE
         else:
             b = ar.read_byte()
             if b == 0:
-                self.shared = 1 # FALSE
+                self.shared = 1  # FALSE
             else:
-                self.shared = 0 #UNKNOWN
+                self.shared = 0  # UNKNOWN
         if version >= 3:
             self.expanded = ar.read_bool()
         n = ar.read_count()
@@ -1072,13 +1159,13 @@ class AlbumFolder:
         self.xml = XMLElement()
         self.album_folders = []
         self.album_files = []
-        self.schema_uri = ''
-        self.coll_sha1 = ''
-        self.guid = ''
-        self.name = ''
+        self.schema_uri = ""
+        self.coll_sha1 = ""
+        self.guid = ""
+        self.name = ""
         self.expanded = False
         self.auto_delete = False
-        self.best_view = ''
+        self.best_view = ""
 
     def print_state(self, f):
         f.out(0, "ALBUM FOLDER")
@@ -1103,7 +1190,7 @@ class AlbumFolder:
         if version >= 19:
             self.coll_sha1 = ar.read_hash(20)
         if version >= 24:
-            self.guid = ar.read_hash(16, encoder='guid')
+            self.guid = ar.read_hash(16, encoder="guid")
         self.name = ar.read_string()
         self.expanded = ar.read_bool()
         self.auto_delete = ar.read_bool()
@@ -1165,18 +1252,24 @@ class LibraryRecent:
 class LibraryHistory:
     def __init__(self):
         self.list = []
-        self.last_seeded_torrent_path = ''
-        self.last_seeded_torrent_name = ''
+        self.last_seeded_torrent_path = ""
+        self.last_seeded_torrent_name = ""
         self.last_seeded_torrent_tlastseeded = 0
-        self.last_seeded_torrent_bth = ''
+        self.last_seeded_torrent_bth = ""
 
     def print_state(self, f):
         f.out(2, "LIBRARY HISTORY")
         f.inc_ident()
         f.out(2, "Last Seeded Torrent Path: %s", self.last_seeded_torrent_path)
         f.out(2, "Last Seeded Torrent Name: %s", self.last_seeded_torrent_name)
-        f.out(2, "Last Seeded Torrent Time Last Seeded: %d (%s UTC)", (self.last_seeded_torrent_tlastseeded,
-            format_datetime(self.last_seeded_torrent_tlastseeded)))
+        f.out(
+            2,
+            "Last Seeded Torrent Time Last Seeded: %d (%s UTC)",
+            (
+                self.last_seeded_torrent_tlastseeded,
+                format_datetime(self.last_seeded_torrent_tlastseeded),
+            ),
+        )
         f.out(2, "Last Seeded Torrent BTH: %s", self.last_seeded_torrent_bth)
         for rec in self.list:
             rec.print_state(f)
@@ -1192,7 +1285,7 @@ class LibraryHistory:
             if len(self.last_seeded_torrent_path) > 0:
                 self.last_seeded_torrent_name = ar.read_string()
                 self.last_seeded_torrent_tlastseeded = convert_to_epoch(ar.read_uint())
-                self.last_seeded_torrent_bth = ar.read_hash(20, encoder='base32')
+                self.last_seeded_torrent_bth = ar.read_hash(20, encoder="base32")
 
 
 class Library:
@@ -1230,30 +1323,37 @@ class Library:
     def print_to_csv(self, w):
         self.libraryFolders.print_to_csv(w)
 
+
 ############################################################################################################
 
 ### Main Part
 
 
 def usage(command):
-    print("ShareazaParser - a parser for Shareaza's Library1.dat, Library2.dat and Searches.dat")
+    print(
+        "ShareazaParser - a parser for Shareaza's Library1.dat, Library2.dat and Searches.dat"
+    )
     print("Version: %s" % (__version__,))
     print("This program needs python version >= 2.5 and < 3 (2.7 recommended)")
     print("")
     print("Usage:")
     print("%s [-h] [-l level] [-c] [-s]" % (command,))
-    print('')
+    print("")
     print(" -h: print this help and exits")
     print(" -c: output text to stdout")
     print(" -l level  (--level=level):")
     print("   Choose output level (only valid for text output):")
     print("     0 - Very Important: Only very important information is displayed")
-    print("     1 - Important: Important information and level 0 information is displayed")
+    print(
+        "     1 - Important: Important information and level 0 information is displayed"
+    )
     print("     2 - Useful: Useful information and level 1 information is displayed")
     print("     3 - Debug(default): All available information is displayed")
     print(" -s: generate csv spreadsheet (instead of text)")
     print("")
-    print(" Timestamps are exported as Unix epoch in text files, or as Excel date in csv files.")
+    print(
+        " Timestamps are exported as Unix epoch in text files, or as Excel date in csv files."
+    )
 
 
 def main(command, argv):
@@ -1283,10 +1383,10 @@ def main(command, argv):
             if level < 0 or level > 3:
                 usage(command)
                 sys.exit(2)
-        elif opt == '-c':
+        elif opt == "-c":
             tostdout = True
 
-    if os.path.isfile('Searches.dat'):
+    if os.path.isfile("Searches.dat"):
         if not tocsv:
             try:
                 parser = MFCParser("Searches.dat")
@@ -1296,7 +1396,7 @@ def main(command, argv):
                 if tostdout:
                     fout = sys.stdout
                 else:
-                    fout = open('Searches.txt', "wt")
+                    fout = open("Searches.txt", "wt")
                 out = FileWriter(fout, level)
                 s.print_state(out)
                 if not tostdout:
@@ -1310,21 +1410,21 @@ def main(command, argv):
                 traceback.print_tb(exc_traceback, file=sys.stderr)
 
     for lib in [1, 2]:
-        if os.path.isfile('Library%d.dat' % (lib,)):
+        if os.path.isfile("Library%d.dat" % (lib,)):
             try:
-                parser = MFCParser('Library%d.dat' % (lib,))
+                parser = MFCParser("Library%d.dat" % (lib,))
                 l = Library(lib)
                 l.serialize(parser)
                 parser.close()
                 if tocsv:
-                    fout = open('Library%d.csv' % (lib,), "wb")
+                    fout = open("Library%d.csv" % (lib,), "wb")
                     writer = CSVWriter(fout, LibraryFile.csvheader)
                     l.print_to_csv(writer)
                 else:
                     if tostdout:
                         fout = sys.stdout
                     else:
-                        fout = open('Library%d.txt' % (lib,), "wt")
+                        fout = open("Library%d.txt" % (lib,), "wt")
                     out = FileWriter(fout, level)
                     l.print_state(out)
                     if not tostdout:
@@ -1340,7 +1440,8 @@ def main(command, argv):
     if not parsed:
         print(
             "No file found for parsing. Make sure Searches.dat, Library1.dat or Library2.dat is in current directory.",
-            file=sys.stderr)
+            file=sys.stderr,
+        )
         sys.exit(1)
 
 
