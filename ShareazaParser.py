@@ -17,16 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from __future__ import print_function
-import sys
-import os.path
-import getopt
-import struct
-import uuid
+
 import base64
-import traceback
-import types
 import csv
 import datetime
+import getopt
+import os.path
+import struct
+import sys
+import traceback
+import types
+import uuid
 
 __author__ = "Fábio Melo Pfefer"
 __copyright__ = "Copyright 2014, Fabio Melo Pfeifer"
@@ -38,7 +39,9 @@ __email__ = "fmpfeifer@gmail.com"
 __status__ = "Beta"
 
 
-### utilities
+# utilities
+
+
 def encode_guid(h):
     guid = uuid.UUID(bytes=h)
 
@@ -72,9 +75,9 @@ encoders = {
 
 
 def _reencode(b):
-    if type(b) is bool:
+    if isinstance(b, bool):
         return str(b)
-    if type(b) is types.UnicodeType:
+    if isinstance(b, types.UnicodeType):
         return b.encode("utf-8")
     return b
 
@@ -90,7 +93,7 @@ def convert_to_csv_timestamp(epoch):
 def format_datetime(epoch):
     try:
         return datetime.datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M:%S")
-    except:
+    except Exception:
         pass
     return "0000-00-00 00:00:00"
 
@@ -256,7 +259,7 @@ class XMLElement:
             attr.serialize(ar)
             if attr.name != "":
                 self.attributes.append(attr)
-                ## verify if attr existis
+                # verify if attr existis
         n = ar.read_count()
         for i in range(n):
             el = XMLElement()
@@ -266,7 +269,7 @@ class XMLElement:
     def print_state(self, f, inXml=False):
         f.inc_ident()
         if self.name != "":
-            if inXml == False:
+            if not inXml:
                 f.out(3, "XML Data")
             strElem = "<" + self.name
             for a in self.attributes:
@@ -289,7 +292,9 @@ class XMLElement:
 ################################################################################################
 
 
-### Searches.dat parser
+# Searches.dat parser
+
+
 class QuerySearch:
     def __init__(self):
         self.guid = ""
@@ -809,10 +814,13 @@ class Searches:
             s.print_state(f)
         f.dec_ident()
 
-    #################################################################################################3
+
+#################################################################################################
 
 
-### Library1.dat and Library2.dat parser
+# Library1.dat and Library2.dat parser
+
+
 _tri_state_decode = {0: "Unknown", 1: "False", 2: "True"}
 
 
@@ -1224,10 +1232,10 @@ class LibraryFolders:
 
     def serialize(self, ar, version):
         n = ar.read_count()
-        for i in range(n):
-            l = LibraryFolder()
-            l.serialize(ar, version)
-            self.folders.append(l)
+        for _ in range(n):
+            libFolder = LibraryFolder()
+            libFolder.serialize(ar, version)
+            self.folders.append(libFolder)
         if version >= 6:
             self.album_root.serialize(ar, version)
 
@@ -1326,7 +1334,7 @@ class Library:
 
 ############################################################################################################
 
-### Main Part
+# Main Part
 
 
 def usage(command):
@@ -1377,7 +1385,7 @@ def main(command, argv):
         elif opt in ("-l", "--level"):
             try:
                 level = int(arg)
-            except:
+            except Exception:
                 usage(command)
                 sys.exit(2)
             if level < 0 or level > 3:
@@ -1413,20 +1421,20 @@ def main(command, argv):
         if os.path.isfile("Library%d.dat" % (lib,)):
             try:
                 parser = MFCParser("Library%d.dat" % (lib,))
-                l = Library(lib)
-                l.serialize(parser)
+                library = Library(lib)
+                library.serialize(parser)
                 parser.close()
                 if tocsv:
                     fout = open("Library%d.csv" % (lib,), "wb")
                     writer = CSVWriter(fout, LibraryFile.csvheader)
-                    l.print_to_csv(writer)
+                    library.print_to_csv(writer)
                 else:
                     if tostdout:
                         fout = sys.stdout
                     else:
                         fout = open("Library%d.txt" % (lib,), "wt")
                     out = FileWriter(fout, level)
-                    l.print_state(out)
+                    library.print_state(out)
                     if not tostdout:
                         fout.close()
                 parsed = True
