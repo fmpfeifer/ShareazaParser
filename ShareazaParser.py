@@ -1388,7 +1388,7 @@ def main(command, argv):
                 print(type(inst))
                 print(inst.args)
                 print(inst)
-                exc_type, exc_value, exc_traceback = sys.exc_info()
+                _, _, exc_traceback = sys.exc_info()
                 traceback.print_tb(exc_traceback, file=sys.stderr)
 
     for lib in [1, 2]:
