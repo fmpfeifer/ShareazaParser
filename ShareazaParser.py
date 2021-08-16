@@ -1421,14 +1421,16 @@ def main(command, argv):
                         writer = CSVWriter(fout, LibraryFile.csvheader)
                         library.print_to_csv(writer)
                 else:
-                    if tostdout:
-                        fout = sys.stdout
-                    else:
-                        fout = open("Library{:d}.txt".format(lib), "wt", encoding="utf-8")
-                    out = FileWriter(fout, level)
-                    library.print_state(out)
-                    if not tostdout:
-                        fout.close()
+                    try:
+                        if tostdout:
+                            fout = sys.stdout
+                        else:
+                            fout = open("Library{:d}.txt".format(lib), "wt", encoding="utf-8")
+                        out = FileWriter(fout, level)
+                        library.print_state(out)
+                    finally:
+                        if not tostdout:
+                            fout.close()
                 parsed = True
             except Exception as inst:
                 print(type(inst))
