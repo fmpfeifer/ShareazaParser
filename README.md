@@ -23,3 +23,5 @@ python ShareazaParser.py [-h] [-l level] [-c] [-s]
 - -s: generate csv spreadsheet (instead of text)
 
  Timestamps are exported as Unix epoch in text files, or as Excel date in csv files.
+ 
+ The Library1.dat, Library2.dat and/or Searches.dat files must be in the same folder as the script.
