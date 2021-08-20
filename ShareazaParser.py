@@ -53,7 +53,7 @@ def encode_in_addr(addr):
 
 def encode_in_addr_v6(addr):
     s = struct.unpack("4s4s4s4s4s4s4s4s", encode_hex(addr))
-    return "%s:%s:%s:%s:%s:%s:%s:%s" % s
+    return "{}:{}:{}:{}:{}:{}:{}:{}".format(*tuple(map(_reencode, s)))
 
 
 def encode_hex(s):
@@ -1412,7 +1412,7 @@ def main(command, argv):
                 if tostdout:
                     fout = sys.stdout
                 else:
-                    fout = open("Searches.txt", "wt")
+                    fout = open("Searches.txt", "wt", encoding="utf-8")
                 out = FileWriter(fout, level)
                 s.print_state(out)
                 if not tostdout:
