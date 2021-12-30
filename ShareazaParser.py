@@ -48,7 +48,7 @@ def encode_guid(h):
 def encode_in_addr(addr):
     b = struct.unpack("!BBBB", addr)
     fmt = "{:d}.{:d}.{:d}.{:d}"
-    return fmt.format(b)
+    return fmt.format(*b)
 
 
 def encode_in_addr_v6(addr):
@@ -57,15 +57,30 @@ def encode_in_addr_v6(addr):
 
 
 def encode_hex(s):
-    return base64.b16encode(s)
+    data = base64.b16encode(s)
+    try:
+        data = data.decode()
+    except (UnicodeDecodeError, AttributeError):
+        pass
+    return data
 
 
 def encode_base32(s):
-    return base64.b32encode(s)
+    data = base64.b32encode(s)
+    try:
+        data = data.decode()
+    except (UnicodeDecodeError, AttributeError):
+        pass
+    return data
 
 
 def encode_base64(s):
-    return base64.b64encode(s)
+    data = base64.b64encode(s)
+    try:
+        data = data.decode()
+    except (UnicodeDecodeError, AttributeError):
+        pass
+    return data
 
 
 encoders = {
@@ -437,7 +452,7 @@ class QueryHit:
         f.out(2, "BTH:" + self.bth)
         f.out(2, "MD5: " + self.md5)
         f.out(1, "URL: " + self.url)
-        f.out(0, "Name: " + self.name.encode("UTF-8"))
+        f.out(0, "Name: " + self.name)
         f.out(2, "Index: {:d}".format(self.index))
         f.out(3, "bSize: " + str(self.bSize))
         f.out(2, "Size: {:d}".format(self.size))
@@ -542,7 +557,7 @@ class MatchFile:
         self.download = False
         self.onevalid = False
         self.nPreview = 0
-        self.preview = ""
+        self.preview = b""
         self.total = 0
         self.time = ""
 
@@ -564,7 +579,7 @@ class MatchFile:
         f.out(3, "Download: " + str(self.download))
         f.out(2, "One Valid: " + str(self.onevalid))
         f.out(3, "Preview Size: {:d}".format(self.nPreview))
-        f.out(3, "Preview: " + self.preview.encode("base64"))
+        f.out(3, "Preview: " + base64.b64encode(self.preview).decode())
         f.out(1, "Total Hits: {:d}".format(self.total))
         for h in self.hits:
             h.print_state(f)
