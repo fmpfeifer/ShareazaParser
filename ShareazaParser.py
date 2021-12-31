@@ -25,6 +25,7 @@ import struct
 import sys
 import traceback
 import uuid
+from collections import defaultdict
 
 __author__ = "Fábio Melo Pfefer"
 __copyright__ = "Copyright 2014, Fabio Melo Pfeifer"
@@ -115,6 +116,19 @@ def format_datetime(epoch):
         pass
     return "0000-00-00 00:00:00"
 
+PROTOCOL_ID_MAP = defaultdict(lambda: "PROTOCOL_NOT_FOUND", {
+    -1: "PROTOCOL_ANY",
+    0: "PROTOCOL_NULL",
+    1: "PROTOCOL_G1",
+    2: "PROTOCOL_G2",
+    3: "PROTOCOL_ED2K",
+    4: "PROTOCOL_HTTP",
+    5: "PROTOCOL_FTP",
+    6: "PROTOCOL_BT",
+    7: "PROTOCOL_KAD",
+    8: "PROTOCOL_DC",
+    9: "PROTOCOL_LAST"
+})
 
 class FileWriter:
     """Output generator"""
@@ -391,7 +405,7 @@ class QueryHit:
         self.port = 0
         self.speed = 0
         self.s_speed = ""
-        self.s_code = ""
+        self.vendor_code = ""
         self.push = False
         self.busy = False
         self.stable = False
@@ -433,15 +447,15 @@ class QueryHit:
         f.out(0, "QUERY HIT")
         f.inc_ident()
         f.out(1, "Search ID: " + self.searchId)
-        f.out(3, "Protocol ID: {:d}".format(self.protocolid))
+        f.out(3, "Protocol ID: {:d}".format(self.protocolid) + " (" + PROTOCOL_ID_MAP[self.protocolid] + ")")
         f.out(1, "Client ID: " + self.clientId)
         f.out(1, "Address: {}:{:d}".format(self.address, self.port))
         f.out(1, "AddressV6: {}:{:d}".format(self.addressv6, self.port))
         f.out(2, "Speed: {:d} ({})".format(self.speed, self.s_speed))
-        f.out(2, "Code: " + self.s_code)
+        f.out(2, "Vendor Code: " + self.vendor_code)
         f.out(3, "Push: " + str(self.push))
         f.out(3, "Busy: " + str(self.busy))
-        f.out(3, "Stable:" + str(self.stable))
+        f.out(3, "Stable: " + str(self.stable))
         f.out(3, "Measured: " + str(self.measured))
         f.out(3, "UPSlots: {:d}  UPQueue: {:d}".format(self.upslots, self.upqueue))
         f.out(3, "Chat: " + str(self.chat))
@@ -483,7 +497,7 @@ class QueryHit:
         self.port = ar.read_ushort()
         self.speed = ar.read_uint()
         self.s_speed = ar.read_string()
-        self.s_code = ar.read_string()
+        self.vendor_code = ar.read_string()
 
         self.push = ar.read_bool()
         self.busy = ar.read_bool()
@@ -580,10 +594,10 @@ class MatchFile:
         f.out(2, "One Valid: " + str(self.onevalid))
         f.out(3, "Preview Size: {:d}".format(self.nPreview))
         f.out(3, "Preview: " + base64.b64encode(self.preview).decode())
+        f.out(1, "Found Time: " + self.time)
         f.out(1, "Total Hits: {:d}".format(self.total))
         for h in self.hits:
             h.print_state(f)
-        f.out(3, "Found Time: " + self.time)
         f.dec_ident()
 
     def serialize(self, ar, version):
