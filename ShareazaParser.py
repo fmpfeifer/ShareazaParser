@@ -583,7 +583,7 @@ class MatchFile:
         f.out(1, "Total Hits: {:d}".format(self.total))
         for h in self.hits:
             h.print_state(f)
-        f.out(3, "Time: ##TODO - decode CTime struct")
+        f.out(3, "Found Time: " + self.time)
         f.dec_ident()
 
     def serialize(self, ar, version):
@@ -618,7 +618,9 @@ class MatchFile:
             hit.serialize(ar, version)
             self.hits.append(hit)
         if version >= 14:
-            self.time = ar.read_bytes(12)
+            ar.read_bytes(4)  # throw away 32 bits of unused data
+            dt = datetime.datetime.fromtimestamp(ar.read_long(), datetime.timezone.utc)
+            self.time = dt.isoformat()
 
 
 class MatchList:
