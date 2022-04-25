@@ -53,8 +53,12 @@ def encode_in_addr(addr):
 
 
 def encode_in_addr_v6(addr):
-    s = struct.unpack("4s4s4s4s4s4s4s4s", encode_hex(addr))
+    s = struct.unpack("4s4s4s4s4s4s4s4s", encode_hex_bytes(addr))
     return "{}:{}:{}:{}:{}:{}:{}:{}".format(*tuple(map(_reencode, s)))
+
+
+def encode_hex_bytes(s):
+    return base64.b16encode(s)
 
 
 def encode_hex(s):
@@ -116,19 +120,24 @@ def format_datetime(epoch):
         pass
     return "0000-00-00 00:00:00"
 
-PROTOCOL_ID_MAP = defaultdict(lambda: "PROTOCOL_NOT_FOUND", {
-    -1: "PROTOCOL_ANY",
-    0: "PROTOCOL_NULL",
-    1: "PROTOCOL_G1",
-    2: "PROTOCOL_G2",
-    3: "PROTOCOL_ED2K",
-    4: "PROTOCOL_HTTP",
-    5: "PROTOCOL_FTP",
-    6: "PROTOCOL_BT",
-    7: "PROTOCOL_KAD",
-    8: "PROTOCOL_DC",
-    9: "PROTOCOL_LAST"
-})
+
+PROTOCOL_ID_MAP = defaultdict(
+    lambda: "PROTOCOL_NOT_FOUND",
+    {
+        -1: "PROTOCOL_ANY",
+        0: "PROTOCOL_NULL",
+        1: "PROTOCOL_G1",
+        2: "PROTOCOL_G2",
+        3: "PROTOCOL_ED2K",
+        4: "PROTOCOL_HTTP",
+        5: "PROTOCOL_FTP",
+        6: "PROTOCOL_BT",
+        7: "PROTOCOL_KAD",
+        8: "PROTOCOL_DC",
+        9: "PROTOCOL_LAST",
+    },
+)
+
 
 class FileWriter:
     """Output generator"""
@@ -220,25 +229,41 @@ class MFCParser:
     def read_file_time(self):
         return self._read("<Q", 8)
 
-    def read_hash(self, n, encoder="hex"):
+    def read_hash(self, n, encoder="hex", read_valid=True):
         ret = b"\0" * n
-        valid = self.read_bool()
+        if read_valid:
+            valid = self.read_bool()
+        else:
+            valid = True
         if valid:
             ret = self.read_bytes(n)
         return encoders[encoder](ret)
 
     def _read_string_len(self):
+        """Returns tuple with String length and boolean indicating if string is unicode"""
+        is_unicode = False
         b_length = self.read_ubyte()
         if b_length < 0xFF:
-            return b_length
+            return b_length, is_unicode
 
         w_length = self.read_ushort()
         if w_length == 0xFFFE:
-            return -1  # Unicode String prefix, length will follow
-        elif w_length == 0xFFFF:
+            is_unicode = True
+            b_length = self.read_ubyte()
+            if b_length < 0xFF:
+                return b_length, is_unicode
             w_length = self.read_ushort()
-            return w_length
-        return w_length
+
+        if w_length < 0xFFFF:
+            return w_length, is_unicode
+
+        dw_lenght = self.read_uint()
+        if dw_lenght < 0xFFFFFFFF:
+            return dw_lenght, is_unicode
+
+        qw_length = self.read_ulong()
+
+        return qw_length, is_unicode
 
     def read_count(self):
         n = self.read_ushort()
@@ -247,19 +272,14 @@ class MFCParser:
         return n
 
     def read_string(self):
-        w_length = self._read_string_len()
-        s_unicode = False
-        if w_length == -1:
-            w_length = self._read_string_len()
-            s_unicode = True
+        length, is_unicode = self._read_string_len()
 
         ret = ""
-        if w_length != 0:
-            if s_unicode:
-                ret = self.read_bytes(w_length * 2).decode("UTF-16LE")
+        if length != 0:
+            if is_unicode:
+                ret = self.read_bytes(length * 2).decode("UTF-16LE")
             else:
-                ret = self.read_bytes(w_length).decode("UTF-8")
-
+                ret = self.read_bytes(length).decode("UTF-8")
         return ret
 
 
@@ -1328,7 +1348,7 @@ class LibraryHistory:
         f.dec_ident()
 
     def serialize(self, ar, version):
-        for i in range(ar.read_count()):
+        for _ in range(ar.read_count()):
             recent = LibraryRecent()
             recent.serialize(ar, version)
             self.list.append(recent)
@@ -1336,8 +1356,8 @@ class LibraryHistory:
             self.last_seeded_torrent_path = ar.read_string()
             if len(self.last_seeded_torrent_path) > 0:
                 self.last_seeded_torrent_name = ar.read_string()
-                self.last_seeded_torrent_tlastseeded = convert_to_epoch(ar.read_uint())
-                self.last_seeded_torrent_bth = ar.read_hash(20, encoder="base32")
+                self.last_seeded_torrent_tlastseeded = ar.read_uint()
+                self.last_seeded_torrent_bth = ar.read_hash(20, encoder="base32", read_valid=False)
 
 
 class Library:
